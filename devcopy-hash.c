@@ -1,11 +1,3 @@
-/*
- * Copyright (C), 2019, Cun Gong (gong_cun@bocmacau.com)
- *
- * Description: Copy the AIX /dev/rhdisk in a way similar to rsync. Divide the
- * file into pieces, compare each pieces, copy the different piece to target
- * file.
- */
-
 #include "devcopy.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,14 +15,15 @@
 int fdin, fdout, fdhash;
 int verbose;
 int procs = 1;
-int hashflg = 0;
 int block_size = BUFLEN; /* 4M */
 unsigned long long total_size;
 
-int docopy(int fd, char *buf, int len)
+int docopy(int fd, char *buf, int len, int seek)
 {
-    if (lseek64(fd, -len, SEEK_CUR) < 0) {
-        return(-1);
+    if (seek != 0) {
+        if (lseek64(fd, seek, SEEK_CUR) < 0) {
+            return(-1);
+        }
     }
     if (write(fd, buf, len) != len) {
         return(-1);
@@ -40,31 +33,29 @@ int docopy(int fd, char *buf, int len)
 
 void help(const char *str)
 {
-    printf("%s -v -f -s size -p procs input output\n", str);
+    printf("%s -v -f [hash-file] -s size -p procs input output\n", str);
     exit(-1);
 }
 
 int main(int argc, char *argv[]) {
-    int c, len, tmp, p;
-    char *bufin, *bufout;
-    char *fchg, *fin, *fout, *fhash;
-    unsigned long long n, i;
+    int c, len, p;
+    char *bufin;
+    char *fchg, *fin, *fout, *fhash = NULL;
+    unsigned long long n, i, seek, sentry;
     pid_t pid;
-    off64_t offset;
+    off64_t offset, offset2;
+    uLong crc0, crc1, crc2;
     FILE *ffchg;
-    uLong crc, crc0;
 
 
     opterr = 0;
 
-    while ((c = getopt(argc, argv, "fs:p:v")) != EOF)
+    while ((c = getopt(argc, argv, "f:s:p:v")) != EOF)
     {
         switch (c)
         {
             case 'f':
-                /* write the hash code to the specific file, suffixed with the
-                 * .hash.seq#, similar for delta file (.chg.seq#). */
-                hashflg = 1;
+                fhash = optarg;
                 break;
             case 's':
                 total_size = strtoull(optarg, NULL, 10);
@@ -82,6 +73,11 @@ int main(int argc, char *argv[]) {
 
     if (argc - optind != 2)
         help(argv[0]);
+    if (fhash == NULL)
+    {
+        printf("Specify a hash file\n");
+        exit(-1);
+    }
 
     fin = argv[optind];
     fout = argv[optind+1];
@@ -91,8 +87,10 @@ int main(int argc, char *argv[]) {
         printf("total size = %llu\n"
                "block size = %d\n"
                "procs = %d\n"
-               "source file = %s\ntarget file = %s\n",
-               total_size, block_size, procs, fin ,fout);
+               "hash file = %s\n"
+               "source file = %s\n"
+               "target file = %s\n",
+               total_size, block_size, procs, fhash, fin ,fout);
     }
     if (total_size == 0) {
         printf("copy size can't be zero\n");
@@ -104,13 +102,6 @@ int main(int argc, char *argv[]) {
         printf("malloc bufin error");
         exit(-1);
     }
-
-    bufout = malloc(block_size);
-    if (bufout == NULL) {
-        printf("malloc bufout error");
-        exit(-1);
-    }
-
 
     if (total_size % block_size)
     {
@@ -153,20 +144,11 @@ int main(int argc, char *argv[]) {
                 exit(-1);
             }
 
-            if (hashflg)
+            fdhash = open64(fhash, O_RDWR);
+            if (fdhash < 0)
             {
-                if (asprintf(&fhash, "%s.hash.%d", fout, p) < 0)
-                {
-                    perror("asprintf");
-                    exit(-1);
-                }
-                fdhash = open64(fhash, O_WRONLY|O_CREAT|O_TRUNC, 0644);
-                if (fdhash < 0)
-                {
-                    perror("open64");
-                    exit(-1);
-                }
-                crc0 = crc32(0L, Z_NULL, 0);
+                perror("open64");
+                exit(-1);
             }
 
             if (asprintf(&fchg, "%s.chg.%d", fout, p) < 0)
@@ -181,6 +163,8 @@ int main(int argc, char *argv[]) {
                 exit(-1);
             }
 
+            crc0 = crc32(0L, Z_NULL, 0);
+
             offset = n/procs * p * block_size;
             if (lseek64(fdin, offset, SEEK_SET) < 0) {
                 printf("lseek64 fdin");
@@ -191,7 +175,14 @@ int main(int argc, char *argv[]) {
                 exit(-1);
             }
 
-            for (i = 0; i < n/procs; i++) {
+            offset2 = n/procs * p * ULONG_LEN;
+            if (lseek64(fdhash, offset2, SEEK_SET) < 0)
+            {
+                perror("lseek64");
+                exit(-1);
+            }
+
+            for (i = 0, sentry = 0; i < n/procs; i++) {
                 len = read(fdin, bufin, block_size);
                 if (len < 0) {
                     perror("read src");
@@ -200,28 +191,27 @@ int main(int argc, char *argv[]) {
                 if (len == 0)
                     break;
 
-                if ((tmp = read(fdout, bufout, len)) < 0) {
-                    perror("read dst");
-                    exit(-1);
-                }
-                if (tmp != len) {
-                    errno = ENOSPC;
-                    perror("read dst");
+                crc1 = crc32(crc0, (const Bytef *)bufin, len);
+
+                if (read(fdhash, (char *)&crc2, ULONG_LEN) != ULONG_LEN)
+                {
+                    perror("read hash");
                     exit(-1);
                 }
 
-                /* write the crc code as index */
-                if (hashflg)
+                if (crc1 != crc2)
                 {
-                    crc = crc32(crc0, (const Bytef *)bufin, len);
-                    if (write(fdhash, &crc, ULONG_LEN) != ULONG_LEN)
+                    if (lseek64(fdhash, -ULONG_LEN, SEEK_CUR) < 0)
+                    {
+                        perror("lseek64");
+                        exit(-1);
+                    }
+                    if (write(fdhash, &crc1, ULONG_LEN) != ULONG_LEN)
                     {
                         perror("write");
                         exit(-1);
                     }
-                }
 
-                if (memcmp(bufin, bufout, len)) {
                     record.seq = i + n/procs * p;
                     record.len = len;
                     record.buf = bufin;
@@ -245,7 +235,9 @@ int main(int argc, char *argv[]) {
                         fprintf(stderr, "%llu\n", record.seq);
                     }
                     
-                    docopy(fdout, bufin, len);
+                    seek = block_size * (i - sentry);
+                    docopy(fdout, bufin, len, seek);
+                    sentry = i + 1;
                 }
             }
 
@@ -258,7 +250,7 @@ int main(int argc, char *argv[]) {
         ;
 
     free(bufin);
-    free(bufout);
+    /* free(bufout); */
 
     return 0;
 }
