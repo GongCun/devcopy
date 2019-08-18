@@ -55,6 +55,7 @@ int main(int argc, char *argv[]) {
     off64_t offset;
     FILE *ffchg;
     uLong crc, crc0;
+    struct slice slice;
 
 
     opterr = 0;
@@ -165,7 +166,6 @@ int main(int argc, char *argv[]) {
         if (pid == 0)
         {
             /* child process */
-            struct record record;
 
             if (verbose)
             {
@@ -264,20 +264,20 @@ int main(int argc, char *argv[]) {
                     
                     if (chgflg)
                     {
-                        record.seq = abs_seq;
-                        record.len = len;
-                        record.buf = bufin;
-                        if (!fwrite(&record.seq, sizeof(record.seq), 1, ffchg))
+                        slice.seq = abs_seq;
+                        slice.len = len;
+                        slice.buf = bufin;
+                        if (!fwrite(&slice.seq, sizeof(slice.seq), 1, ffchg))
                         {
                             perror("fwrite");
                             exit(-1);
                         }
-                        if (!fwrite(&record.len, sizeof(record.len), 1, ffchg))
+                        if (!fwrite(&slice.len, sizeof(slice.len), 1, ffchg))
                         {
                             perror("fwrite");
                             exit(-1);
                         }
-                        if (!fwrite(record.buf, record.len, 1, ffchg))
+                        if (!fwrite(slice.buf, slice.len, 1, ffchg))
                         {
                             perror("fwrite");
                             exit(-1);

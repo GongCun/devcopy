@@ -84,7 +84,7 @@ static void err_doit(int errnoflag, int error, const char *format, va_list args)
      */
 
     size = vsnprintf(NULL, 0, format, args);
-    if (size == 0)
+    if (size == 0 || format == NULL)
         {
             fputs(strerror(error), stderr);
             fputs("\n", stderr);

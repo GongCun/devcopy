@@ -1,13 +1,12 @@
 ROOT = ..
+EXTRA := -fPIC
 include $(ROOT)/Make.defines
 
-OBJS1 = list.o
-OBJS2 = error.o
+OBJS = list.o error.o
 
-all: $(LIBMYADT) $(LIBMYERR)
+all: $(LIBMYLIB)
 
-$(LIBMYADT): $(OBJS1)
-	$(AR) rcs $(LIBMYADT) $?
+$(LIBMYLIB): $(OBJS)
+	$(AR) rv $(LIBMYLIB) $?
+	$(RANLIB) $(LIBMYLIB)
 
-$(LIBMYERR): $(OBJS2)
-	$(AR) rcs $(LIBMYERR) $?
