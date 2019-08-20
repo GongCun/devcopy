@@ -7,10 +7,10 @@ int main()
     /* err_msg(NULL); */
     /* err_msg(""); */
     /* err_sys(""); */
-    printf("err_sys\n");
-    
-    err_sys(NULL);
+    /* err_sys(NULL); */
     err_msg("");
+    char *temp = "/tmp/xxx";
+    err_ret("can't find file %s", temp);
     errno = 0;
     err_ret("");
     err_msg("test message");
