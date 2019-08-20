@@ -1,0 +1,11 @@
+# Install gdbm library & tools
+sudo apt-get update
+sudo apt-get install libgdbm-dev
+sudo apt-get install -y gdbmtool
+
+
+# todo
+- Create database with dbx, design the data structure.
+- Draw the k-ary tree (include description), highlight the current node.
+- Find the path from current versiont to the target version, rollback or
+  update thru the path.
