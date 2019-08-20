@@ -17,25 +17,37 @@ char *hint = "\n\n\n# Please enter a description of the submission";
 static int chk_emp_comm(const char *str)
 {
     regex_t regex;
-    int ret;
-    char errbuf[]
+    int i, ret;
+    char errbuf[MYBUFLEN];
+    char *pattern[] = {
+        "^[[:space:]]*$",
+        "^[[:space:]]*#"
+    };
 
-    ret = regcomp(&regex, "^[[:space:]]*$", REG_EXTENDED);
-    if (ret) {
-        err_quit("Can't compile regex");
+    for (i = 0;
+         i < (int)(sizeof(pattern) / sizeof(pattern[0]));
+         i++)
+    {
+        ret = regcomp(&regex, pattern[i], REG_EXTENDED);
+        if (ret) {
+            err_quit("Can't compile regex");
+        }
+        ret = regexec(&regex, str, 0, NULL, 0);
+        if (!ret) {
+            regfree(&regex);
+            return 1; /* match */
+        }
+        else if (ret == REG_NOMATCH) {
+            regfree(&regex);
+        }
+        else {
+            regfree(&regex);
+            regerror(ret, &regex, errbuf, sizeof(errbuf));
+            err_quit("Regex match failed: %s", errbuf);
+        }
     }
-    ret = regexec(&regex, str, 0, NULL, 0);
-    if (!ret) {
-        return 1; /* match */
-    }
-    else if (ret == REG_NOMATCH) {
-        return 0; /* no match */
-    }
-    else {
-        err_quit("Regex match failed: %s",
 
-        )
-    }
+    return 0; /* no match */
 }
 
 static char *commit_parser(FILE *file)
@@ -46,12 +58,15 @@ static char *commit_parser(FILE *file)
 
     
     while (fgets(readin, sizeof(readin), file) != NULL) {
+        if (chk_emp_comm(readin)) {
+            continue;
+        }
         alloc = copylen + strlen(readin) + 1;
         buf = realloc(buf, alloc);
         if (buf == NULL) {
             err_sys("realloc");
         }
-        strncpy(buf + copylen, readin, strlen(readin));
+        strncpy(buf + copylen, readin, strlen(readin) + 1);
         copylen += strlen(readin);
     }
 
