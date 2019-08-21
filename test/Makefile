@@ -1,6 +1,6 @@
 ROOT = ..
 include $(ROOT)/Make.defines
-EXTRALIBS = -lgdbm -lz
+EXTRALIBS = -lgdbm_compat -lgdbm -lz
 
 CPPFLAGS = -I$(LDDIR) -I$(ROOT)
 

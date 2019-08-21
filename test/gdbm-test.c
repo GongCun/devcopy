@@ -2,7 +2,7 @@
 #include "error.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <gdbm.h>
+#include <ndbm.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -12,8 +12,34 @@
 #include <fcntl.h>
 
 #define MYBUFLEN 1024
+#define DB_FILE "./devcopy.dbm"
 
+static void copy_data(datum *pdatum, struct commit *pcommit)
+{
+    int tmp;
+    
+    pdatum->dsize = sizeof(pcommit->comm_ver);
+    pdatum->dsize += sizeof(pcommit->comm_pver);
+    pdatum->dsize += sizeof(pcommit->comm_date);
+    pdatum->dsize += sizeof(pcommit->comm_author);
 
+    tmp = pdatum->dsize;
+
+    pdatum->dptr = malloc(pdatum->dsize);
+    if (pdatum->dptr == NULL) {
+        err_sys("malloc");
+    }
+    memcpy(pdatum->dptr, pcommit, pdatum->dsize);
+    
+    pdatum->dsize += strlen(pcommit->comm_msg) + 1;
+    pdatum->dptr = realloc(pdatum->dptr, pdatum->dsize);
+    if (!pdatum->dptr) {
+        err_sys("realloc");
+    }
+
+    strcpy(pdatum->dptr + tmp, pcommit->comm_msg);
+
+}
 static int chk_emp_comm(const char *str)
 {
     regex_t regex;
@@ -133,7 +159,7 @@ static char *commit_msg(void)
         err_sys("Editor (%s) failed with exit status %d", ret);
     }
 
-    free(Editor);
+    /* free(Editor); */
     unlink(template);
     return parse_result;
 }
@@ -164,33 +190,62 @@ static uLong commit_ver() {
 static void input_record(void)
 {
     int n;
-
     struct commit commit;
     uLong current_ver = 0;
+    char *s;
+
+#define author (commit.comm_author)
+#define msg (commit.comm_msg)
+#define version (commit.comm_ver)
+#define pversion (commit.comm_pver)
+#define date (commit.comm_date)
+
+    datum dbm_key, dbm_data;
+    
+    DBM *dbm_db = dbm_open(DB_FILE, O_RDWR|O_CREAT, 0644);
+    if (!dbm_db) {
+        err_quit("%s", gdbm_strerror(gdbm_errno));
+    }
 
     while (1) {
         printf("input your name: ");
-        n = scanf("%s\n", commit.comm_author);
-        if (n == EOF) {
+
+        s = fgets(author, sizeof(author), stdin);
+        if (s != NULL && strlen(author) > 0) {
+            author[strlen(author) - 1] = '\0';
+        }
+
+        /* printf("name = %s\n", commit.comm_author); */
+        if (s == NULL) {
             break;
         }
-        commit.comm_msg = commit_msg();
-        if (commit.comm_msg == NULL) {
+        msg = commit_msg();
+        if (msg == NULL) {
             err_quit("\nFailed to parse commit message.");
         }
-        commit.comm_date = commit_date();
-        commit.comm_ver = commit_ver();
-        commit.comm_pver = current_ver;
-        current_ver = commit.comm_ver;
-        printf("author: %s\n"
-               "date: %s\n"
-               "version: %lx\n"
-               "parent version: %lx\n"
-               "commit message\n"
-               "==============\n%s\n",
-               commit.comm_author, ctime(&commit.comm_date),
-               commit.comm_ver, commit.comm_pver, commit.comm_msg);
-        fflush(stdout);
+        date = commit_date();
+        version = commit_ver();
+        pversion = current_ver;
+        current_ver = version;
+        dbm_key.dptr = (void *)version;
+        dbm_key.dsize = sizeof(version);
+        /* s = ctime(&date); */
+        /* s[strlen(s) - 1] = '\0'; /\* ctime() end with '\n' *\/ */
+        copy_data(&dbm_data, &commit);
+        n = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
+        if (n != 0) {
+            err_quit(gdbm_strerror(gdbm_errno));
+        }
+        free(msg);
+        free(dbm_data.dptr);
+        
+        /* printf("author: %s\n" */
+        /*        "date: %s\n" */
+        /*        "version: %lx\n" */
+        /*        "parent version: %lx\n" */
+        /*        "commit message\n" */
+        /*        "==============\n%s\n", */
+        /*        author, s, version, pversion, msg); */
     }
 }
 
