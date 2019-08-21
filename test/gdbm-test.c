@@ -250,6 +250,8 @@ static void input_record(void)
                 s[strlen(s) - 1] = '\0'; /* ctime() end with '\n' */
                 /* printf("date = %s\n", s); */
 
+                printf("message: %s\n", Commit_messgae(pcommit));
+
                 printf("author: %s\n"
                        "date: %s\n"
                        "version: %lx\n"
