@@ -8,11 +8,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <regex.h>
+#include <time.h>
+#include <fcntl.h>
 
 #define MYBUFLEN 1024
 
-char template[] = "/tmp/devcopy-XXXXXX";
-char *hint = "\n\n\n# Please enter a description of the submission";
 
 static int chk_emp_comm(const char *str)
 {
@@ -73,12 +73,17 @@ static char *commit_parser(FILE *file)
     return buf;
 }
 
-int main()
+static char *commit_msg(void)
 {
     int fd;
     int len;
     int ret;
     char *Editor;
+    char buf[MYBUFLEN];
+    FILE *Commit;
+    char *parse_result;
+    char template[] = "/tmp/devcopy-XXXXXX";
+    char *hint = "\n\n\n# Please enter a description of the submission";
     
 
     if ((fd = mkstemp(template)) < 0) {
@@ -95,7 +100,6 @@ int main()
         Editor = strdup("/usr/bin/vi");
     }
 
-    char buf[MYBUFLEN];
     if (strlen(Editor) + strlen(template) + 2 > sizeof(buf)) {
         err_quit("Buffer too short");
     }
@@ -118,24 +122,81 @@ int main()
          * Reopen the temporary file and extract the content to description
          * buffer.
          */
-        FILE *Commit;
         Commit = fopen(template, "r");
 
         if (Commit == NULL) {
             err_sys("fopen");
         }
-        char *parse_result = commit_parser(Commit);
-        if (parse_result == NULL) {
-            err_quit("Failed to parse the temporary file (%s)", template);
-        }
-        printf("%s", parse_result);
-        free(parse_result);
-        unlink(template);
+        parse_result = commit_parser(Commit);
     }
     else {
         err_sys("Editor (%s) failed with exit status %d", ret);
     }
+
+    free(Editor);
+    unlink(template);
+    return parse_result;
 }
 
+static time_t commit_date() {
+    return time(NULL);
+}
 
+static uLong commit_ver() {
+    int fd;
+    uLong crc;
+    char buf[MYBUFLEN];
+    
+    fd = open("/dev/urandom", O_RDONLY);
+    if (fd < 0) {
+        err_sys("open /dev/urandom");
+    }
+    if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
+        err_sys("read /dev/urandom");
+    }
+    close(fd);
 
+    crc = crc32(0L, Z_NULL, 0);
+    return crc32(crc, (const Bytef *)buf, sizeof(buf));
+
+}
+
+static void input_record(void)
+{
+    int n;
+
+    struct commit commit;
+    uLong current_ver = 0;
+
+    while (1) {
+        printf("input your name: ");
+        n = scanf("%s\n", commit.comm_author);
+        if (n == EOF) {
+            break;
+        }
+        commit.comm_msg = commit_msg();
+        if (commit.comm_msg == NULL) {
+            err_quit("\nFailed to parse commit message.");
+        }
+        commit.comm_date = commit_date();
+        commit.comm_ver = commit_ver();
+        commit.comm_pver = current_ver;
+        current_ver = commit.comm_ver;
+        printf("author: %s\n"
+               "date: %s\n"
+               "version: %lx\n"
+               "parent version: %lx\n"
+               "commit message\n"
+               "==============\n%s\n",
+               commit.comm_author, ctime(&commit.comm_date),
+               commit.comm_ver, commit.comm_pver, commit.comm_msg);
+        fflush(stdout);
+    }
+}
+
+int main(int argc, char *argv[])
+{
+
+    input_record();
+    return 0;
+}

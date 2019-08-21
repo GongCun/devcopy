@@ -21,12 +21,12 @@ struct slice {
     char *buf;
 };
 
-struct record {
-    uLong version; /* hash code of commit date */
-    uLong parent_version;
-    char date[32];
-    char author[64];
-    char *description;
+struct commit {
+    uLong comm_ver;       /* hash code of commit date */
+    uLong comm_pver;      /* parent version           */
+    time_t comm_date;     /* commit date              */
+    char comm_author[64]; /* submitter                */
+    char *comm_msg;       /* description of commit    */
 };
 
 #ifdef _AIX
