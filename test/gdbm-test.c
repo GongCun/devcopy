@@ -190,7 +190,7 @@ static uLong commit_ver() {
 static void input_record(void)
 {
     int n;
-    struct commit commit;
+    struct commit commit, *pcommit;
     uLong current_ver = 0;
     char *s;
 
@@ -227,10 +227,8 @@ static void input_record(void)
         version = commit_ver();
         pversion = current_ver;
         current_ver = version;
-        dbm_key.dptr = (void *)version;
+        dbm_key.dptr = (void *)&version;
         dbm_key.dsize = sizeof(version);
-        /* s = ctime(&date); */
-        /* s[strlen(s) - 1] = '\0'; /\* ctime() end with '\n' *\/ */
         copy_data(&dbm_data, &commit);
         n = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
         if (n != 0) {
@@ -238,15 +236,34 @@ static void input_record(void)
         }
         free(msg);
         free(dbm_data.dptr);
-        
-        /* printf("author: %s\n" */
-        /*        "date: %s\n" */
-        /*        "version: %lx\n" */
-        /*        "parent version: %lx\n" */
-        /*        "commit message\n" */
-        /*        "==============\n%s\n", */
-        /*        author, s, version, pversion, msg); */
     }
+    /* Retrieving data */
+    for (dbm_key = dbm_firstkey(dbm_db);
+            dbm_key.dptr;
+            dbm_key = dbm_nextkey(dbm_db))
+        {
+            dbm_data = dbm_fetch(dbm_db, dbm_key);
+            if (dbm_data.dptr) {
+                /* printf("Data retrieved\n"); */
+                pcommit = (struct commit *)dbm_data.dptr;
+                s = ctime(&Commit_date(pcommit));
+                s[strlen(s) - 1] = '\0'; /* ctime() end with '\n' */
+                /* printf("date = %s\n", s); */
+
+                printf("author: %s\n"
+                       "date: %s\n"
+                       "version: %lx\n"
+                       "parent version: %lx\n\n",
+                       /* "commit message\n" */
+                       /* "==============\n%s\n", */
+                       Commit_author(pcommit), s, Commit_version(pcommit),
+                       Commit_pversion(pcommit));
+                       /* Commit_pversion(pcommit), Commit_messgae(pcommit)); */
+            }
+            else {
+                printf("No data found\n");
+            }
+        }
 }
 
 int main(int argc, char *argv[])
