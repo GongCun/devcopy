@@ -14,32 +14,6 @@
 #define MYBUFLEN 1024
 #define DB_FILE "./devcopy.dbm"
 
-static void copy_data(datum *pdatum, struct commit *pcommit)
-{
-    int tmp;
-    
-    pdatum->dsize = sizeof(pcommit->comm_ver);
-    pdatum->dsize += sizeof(pcommit->comm_pver);
-    pdatum->dsize += sizeof(pcommit->comm_date);
-    pdatum->dsize += sizeof(pcommit->comm_author);
-
-    tmp = pdatum->dsize;
-
-    pdatum->dptr = malloc(pdatum->dsize);
-    if (pdatum->dptr == NULL) {
-        err_sys("malloc");
-    }
-    memcpy(pdatum->dptr, pcommit, pdatum->dsize);
-    
-    pdatum->dsize += strlen(pcommit->comm_msg) + 1;
-    pdatum->dptr = realloc(pdatum->dptr, pdatum->dsize);
-    if (!pdatum->dptr) {
-        err_sys("realloc");
-    }
-
-    strcpy(pdatum->dptr + tmp, pcommit->comm_msg);
-
-}
 static int chk_emp_comm(const char *str)
 {
     regex_t regex;
@@ -99,7 +73,7 @@ static char *commit_parser(FILE *file)
     return buf;
 }
 
-static char *commit_msg(void)
+static char *commit_message(void)
 {
     int fd;
     int len;
@@ -159,6 +133,7 @@ static char *commit_msg(void)
         err_sys("Editor (%s) failed with exit status %d", ret);
     }
 
+    /* _FIXME_: haven't free the Editor. */
     /* free(Editor); */
     unlink(template);
     return parse_result;
@@ -168,7 +143,7 @@ static time_t commit_date() {
     return time(NULL);
 }
 
-static uLong commit_ver() {
+static uLong commit_version() {
     int fd;
     uLong crc;
     char buf[MYBUFLEN];
@@ -190,15 +165,9 @@ static uLong commit_ver() {
 static void store_record(void)
 {
     int n;
-    struct commit commit, *pcommit;
-    uLong current_ver = 0;
+    struct commit_info comm, *p;
+    uLong current_version = 0;
     char *s;
-
-/* #define author (commit.comm_author) */
-/* #define msg (commit.comm_msg) */
-/* #define version (commit.comm_ver) */
-/* #define pversion (commit.comm_pver) */
-/* #define date (commit.comm_date) */
 
     datum dbm_key, dbm_data;
     
@@ -209,40 +178,39 @@ static void store_record(void)
 
 
     while (1) {
-        pcommit = &commit;
+        p = &comm;
         printf("input your name: ");
 
-        s = fgets(Commit_author(pcommit), sizeof(Commit_author(pcommit)), stdin);
-        if (s != NULL && strlen(Commit_author(pcommit)) > 0) {
-            pcommit->comm_author[strlen(Commit_author(pcommit)) - 1] = '\0';
+        s = fgets(p->cm_author, sizeof(p->cm_author), stdin);
+        if (s != NULL && strlen(p->cm_author) > 0) {
+            p->cm_author[strlen(p->cm_author) - 1] = '\0';
         }
 
         if (s == NULL) {
             break;
         }
-        s = commit_msg();
+        s = commit_message();
         if (s == NULL) {
             err_quit("\nFailed to parse commit message.");
         }
-        memset(Commit_message(pcommit), '\0', sizeof(Commit_message(pcommit)));
-        strncpy(pcommit->comm_msg, s, sizeof(pcommit->comm_msg) - 1);
+        memset(p->cm_message, '\0', sizeof(p->cm_message));
+        strncpy(p->cm_message, s, sizeof(p->cm_message) - 1);
         free(s);
-        Commit_date(pcommit) = commit_date();
-        Commit_version(pcommit) = commit_ver();
-        Commit_pversion(pcommit) = current_ver;
-        current_ver = Commit_version(pcommit);
-        dbm_key.dptr = (void *)&pcommit->comm_ver;
-        dbm_key.dsize = sizeof(pcommit->comm_ver);
-        /* copy_data(&dbm_data, &commit); */
-        dbm_data.dptr = (void *)pcommit;
-        dbm_data.dsize = sizeof(struct commit);
+        p->cm_date = commit_date();
+        p->cm_version = commit_version();
+        p->cm_pversion = current_version;
+        current_version = p->cm_version;
+
+        dbm_key.dptr = (void *)&p->cm_version;
+        dbm_key.dsize = sizeof(p->cm_version);
+        dbm_data.dptr = (void *)p;
+        dbm_data.dsize = sizeof(struct commit_info);
         n = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
         if (n != 0) {
             err_quit(gdbm_strerror(gdbm_errno));
         }
-        /* free(msg); */
-        /* free(dbm_data.dptr); */
     }
+
     /* Retrieving data */
     for (dbm_key = dbm_firstkey(dbm_db);
             dbm_key.dptr;
@@ -251,16 +219,15 @@ static void store_record(void)
             dbm_data = dbm_fetch(dbm_db, dbm_key);
             if (dbm_data.dptr) {
                 /* printf("Data retrieved\n"); */
-                pcommit = (struct commit *)dbm_data.dptr;
-                s = ctime(&Commit_date(pcommit));
+                p = (struct commit_info *)dbm_data.dptr;
+                s = ctime(&p->cm_date);
                 s[strlen(s) - 1] = '\0'; /* ctime() end with '\n' */
-                /* printf("date = %s\n", s); */
 
-                printf("author: %s\n", Commit_author(pcommit));
+                printf("author: %s\n", p->cm_author);
                 printf("date: %s\n", s);
-                printf("version: %lx\n", Commit_version(pcommit));
-                printf("parent version: %lx\n", Commit_pversion(pcommit));
-                printf("message: \n%s\n", Commit_message(pcommit));
+                printf("version: %lx\n", p->cm_version);
+                printf("parent version: %lx\n", p->cm_pversion);
+                printf("message: \n%s\n", p->cm_message);
 
             }
             else {
