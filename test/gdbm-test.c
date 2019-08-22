@@ -162,11 +162,32 @@ static uLong commit_version() {
 
 }
 
+static uLong current_version(DBM *dbm_db, struct commit_info **cm)
+{
+    struct commit_info *p;
+    datum dbm_key, dbm_data;
+
+    for (dbm_key = dbm_firstkey(dbm_db);
+         dbm_key.dptr;
+         dbm_key = dbm_nextkey(dbm_db))
+        {
+            dbm_data = dbm_fetch(dbm_db, dbm_key);
+            if (dbm_data.dptr) {
+                p = (struct commit_info *)dbm_data.dptr;
+                if (p->cm_current_flag) {
+                    *cm = p;
+                    return p->cm_version;
+                }
+            }
+        }
+    return 0;
+}
+
 static void store_record(void)
 {
     int n;
-    struct commit_info comm, *p;
-    uLong current_version = 0;
+    struct commit_info comm, *p, *pcv;
+    /* uLong current_version = 0; */
     char *s;
 
     datum dbm_key, dbm_data;
@@ -198,9 +219,24 @@ static void store_record(void)
         free(s);
         p->cm_date = commit_date();
         p->cm_version = commit_version();
-        p->cm_pversion = current_version;
-        current_version = p->cm_version;
+        pcv = NULL;
+        p->cm_pversion = current_version(dbm_db, &pcv);
+        p->cm_current_flag = 1;
 
+        /* Clean the previous version info. */
+        if (pcv) {
+            pcv->cm_current_flag = 0;
+            dbm_key.dptr = (void *)&pcv->cm_version;
+            dbm_key.dsize = sizeof(pcv->cm_version);
+            dbm_data.dptr = (void *)pcv;
+            dbm_data.dsize = sizeof(struct commit_info);
+            n = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
+            if (n != 0) {
+                err_quit(gdbm_strerror(gdbm_errno));
+            }
+        }
+
+        /* Insert new commit. */
         dbm_key.dptr = (void *)&p->cm_version;
         dbm_key.dsize = sizeof(p->cm_version);
         dbm_data.dptr = (void *)p;
