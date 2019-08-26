@@ -4,7 +4,7 @@ EXTRALIBS = -lgdbm_compat -lgdbm -lz
 
 CPPFLAGS = -I$(LDDIR) -I$(ROOT)
 
-PROGS = error-test gdbm-test
+PROGS = error-test gdbm-test ktree-test
 
 all: $(PROGS)
 

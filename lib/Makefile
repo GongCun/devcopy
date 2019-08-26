@@ -2,7 +2,7 @@ ROOT = ..
 EXTRA := -fPIC
 include $(ROOT)/Make.defines
 
-OBJS = list.o error.o
+OBJS = ktree.o list.o error.o
 
 all: $(LIBMYLIB)
 
