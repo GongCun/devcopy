@@ -1,6 +1,7 @@
 #include "ktree.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 
 void ktree_init(KTree *tree,
@@ -40,6 +41,7 @@ int ktree_ins_child(KTree *tree, KTreeNode *node, const void *data) {
         ktree_first_child(node) = new_node;
     }
     tree -> kt_size++;
+    return 0;
 }
 
 void ktree_rem_first(KTree *tree, KTreeNode *node)
@@ -57,15 +59,23 @@ void ktree_rem_first(KTree *tree, KTreeNode *node)
     }
 
     if (*position) {
+        printf(">> %p\n", *position);
+
         if (node) {
             node -> ktn_first_child = (*position) -> ktn_next_sibling;
         }
+
+        printf("%p\n", *position);
+
+        p = (*position) -> ktn_first_child;
+        while (p && p -> ktn_next_sibling)
+            ktree_rem_next(tree, p);
         
-        for (p = (*position) -> ktn_first_child;
-             p -> ktn_next_sibling;)
-            {
-                ktree_rem_next(tree, p)
-                }
+        /* for (p = (*position) -> ktn_first_child; */
+        /*      p && p -> ktn_next_sibling;) */
+        /*     { */
+        /*         ktree_rem_next(tree, p); */
+        /*     } */
         ktree_rem_first(tree, *position);
 
         if (tree -> kt_destroy) {
@@ -74,7 +84,7 @@ void ktree_rem_first(KTree *tree, KTreeNode *node)
 
         free(*position);
         *position = NULL;
-        tree -> size--;
+        tree -> kt_size--;
     }
 
 }
@@ -89,11 +99,12 @@ void ktree_rem_next(KTree *tree, KTreeNode *node)
             return;
         }
 
-    *position = &node -> ktn_next_sibling;
+    position = &node -> ktn_next_sibling;
+    
     if (*position) {
         node -> ktn_next_sibling = (*position) -> ktn_next_sibling;
         for (p = (*position);
-             p->ktn_first_child;)
+             p && p->ktn_first_child;)
             {
                 ktree_rem_first(tree, p);
             }
@@ -103,12 +114,12 @@ void ktree_rem_next(KTree *tree, KTreeNode *node)
 
         free(*position);
         *position = NULL;
-        tree->size--;
+        tree->kt_size--;
     }
 
 }
 
-void ktree_destory(KTree *tree)
+void ktree_destroy(KTree *tree)
 {
     ktree_rem_first(tree, NULL);
 }

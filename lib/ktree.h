@@ -6,7 +6,7 @@ typedef struct KTreeNode_ {
     void              *ktn_data;
     struct KTreeNode_ *ktn_parent;
     struct KTreeNode_ *ktn_first_child;
-    struct KTREENODE_ *ktn_next_sibling;
+    struct KTreeNode_ *ktn_next_sibling;
 } KTreeNode;
 
 /* Define the struct for k-ary trees */
@@ -19,8 +19,8 @@ typedef struct KTree_ {
 } KTree;
 
 /*-------------- Public Interface -------------- */
-void ktree_init(KTree *tree, void (*destroy)(void *data));
-void ktree_destory(KTree *tree);
+void ktree_init(KTree *tree, void (*destroy)(void *data), void (*print)(void *data));
+void ktree_destroy(KTree *tree);
 int ktree_ins_child(KTree *tree, KTreeNode *node, const void *data);
 void ktree_rem_first(KTree *tree, KTreeNode *node);
 void ktree_rem_next(KTree *tree, KTreeNode *node);

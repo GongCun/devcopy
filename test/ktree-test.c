@@ -4,15 +4,16 @@
 #include <stdio.h>
 #include <string.h>
 
-static void print(int *data)
+static void print(void *data)
 {
-    printf("%d\n", *data);
+    printf("%d\n", *(int *)data);
 }
 
 
 int main(int argc, char *argv[])
 {
-    KTree *tree, *p;
+    KTree *tree;
+    KTreeNode *p;
     int *data;
     
     tree = malloc(sizeof(KTree));
@@ -27,20 +28,28 @@ int main(int argc, char *argv[])
     }
     printf("Input root: ");
     scanf("%d", data);
-    p = ktree_root(tree);
     
-    ktree_ins_child(tree, NULL, &data);
+    ktree_ins_child(tree, NULL, data);
+    p = ktree_root(tree);
+
     while (1) {
+        /* if (feof(stdin)) { */
+        /*     break; */
+        /* } */
         data = malloc(sizeof(int));
         if (data == NULL) {
             err_sys("malloc data");
         }
         printf("Input child: ");
         scanf("%d", data);
+        if (*data == -1)
+            break;
         ktree_ins_child(tree, p, data);
         p = ktree_first_child(p);
     }
+
+    printf("size = %d\n", ktree_size(tree));
     ktree_print(tree, ktree_root(tree));
-    ktree_destory(tree);
+    ktree_destroy(tree);
     
 }
