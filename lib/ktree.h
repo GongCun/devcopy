@@ -25,6 +25,7 @@ int ktree_ins_child(KTree *tree, KTreeNode *node, const void *data);
 void ktree_rem_first(KTree *tree, KTreeNode *node);
 void ktree_rem_next(KTree *tree, KTreeNode *node);
 void ktree_print(KTree *tree, KTreeNode *node);
+KTreeNode *ktree_find(KTree *tree, KTreeNode *node, void *data);
 
 #define ktree_size(tree) ((tree) -> kt_size)
 #define ktree_root(tree) ((tree) -> kt_root)

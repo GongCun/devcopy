@@ -46,44 +46,36 @@ int ktree_ins_child(KTree *tree, KTreeNode *node, const void *data) {
 
 void ktree_rem_first(KTree *tree, KTreeNode *node)
 {
-    KTreeNode **position, *p;
+    KTreeNode *position, *p;
 
     if (ktree_size(tree) == 0)
         return;
 
     if (node == NULL) {
-        position = &tree->kt_root;
+        position = tree->kt_root;
     }
     else {
-        position = &node->ktn_first_child;
+        position = node->ktn_first_child;
     }
 
-    if (*position) {
-        printf(">> %p\n", *position);
+    if (position) {
 
         if (node) {
-            node -> ktn_first_child = (*position) -> ktn_next_sibling;
+            node -> ktn_first_child = position -> ktn_next_sibling;
         }
 
-        printf("%p\n", *position);
-
-        p = (*position) -> ktn_first_child;
+        p = position -> ktn_first_child;
         while (p && p -> ktn_next_sibling)
             ktree_rem_next(tree, p);
-        
-        /* for (p = (*position) -> ktn_first_child; */
-        /*      p && p -> ktn_next_sibling;) */
-        /*     { */
-        /*         ktree_rem_next(tree, p); */
-        /*     } */
-        ktree_rem_first(tree, *position);
+
+        ktree_rem_first(tree, position);
 
         if (tree -> kt_destroy) {
-            tree -> kt_destroy((*position) -> ktn_data);
+            tree -> kt_destroy(position -> ktn_data);
         }
 
-        free(*position);
-        *position = NULL;
+        free(position);
+        position = NULL;
         tree -> kt_size--;
     }
 
@@ -91,7 +83,7 @@ void ktree_rem_first(KTree *tree, KTreeNode *node)
 
 void ktree_rem_next(KTree *tree, KTreeNode *node)
 {
-    KTreeNode **position, *p;
+    KTreeNode *position, *p;
 
     if (ktree_size(tree) == 0 ||
         node == NULL)
@@ -99,21 +91,21 @@ void ktree_rem_next(KTree *tree, KTreeNode *node)
             return;
         }
 
-    position = &node -> ktn_next_sibling;
+    position = node -> ktn_next_sibling;
     
-    if (*position) {
-        node -> ktn_next_sibling = (*position) -> ktn_next_sibling;
-        for (p = (*position);
-             p && p->ktn_first_child;)
-            {
-                ktree_rem_first(tree, p);
-            }
+    if (position) {
+        node -> ktn_next_sibling = position -> ktn_next_sibling;
+
+        p = position;
+        while (p && p->ktn_first_child)
+            ktree_rem_first(tree, p);
+
         if (tree->kt_destroy) {
-            tree->kt_destroy((*position) -> ktn_data);
+            tree->kt_destroy(position -> ktn_data);
         }
 
-        free(*position);
-        *position = NULL;
+        free(position);
+        position = NULL;
         tree->kt_size--;
     }
 
@@ -142,4 +134,29 @@ void ktree_print(KTree *tree, KTreeNode *node)
         {
             ktree_print(tree, p);
         }
+}
+
+KTreeNode *ktree_find(KTree *tree, KTreeNode *node, void *data)
+{
+    KTreeNode *ret, *p;
+
+    if (tree -> kt_compare == NULL)
+        return NULL;
+
+    if (node == NULL)
+        return NULL;
+
+    if (tree -> kt_compare(node -> ktn_data, data)) {
+        return node;
+    }
+    else {
+        for (p = node -> ktn_first_child;
+             p;
+             p = p ->ktn_next_sibling)
+            {
+                ret = ktree_find(tree, p, data);
+                if (ret)
+                    return ret;
+            }
+    }
 }
