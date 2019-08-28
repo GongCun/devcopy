@@ -179,19 +179,19 @@ int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, List *list)
         {
             e = list -> tail;
             list_ins_next(list, e, (const void *)p);
-            if (ktree_path(tree, p, node2, list) == 0) {
-                list_rem_next(list, e, (void **)&tmp);
-            }
-            else {
+
+            if (ktree_path(tree, p, node2, list)) {
                 return 1;
             }
 
+            list_rem_next(list, e, (void **)&tmp);
         }
 
     /* Path: node1 -> parent -> node2 */
     p = node1 -> ktn_parent;
     t = list -> tail;
     list_ins_next(list, t, (const void *)p);
+
     if (p == node2)
         return 1;
     
@@ -201,17 +201,19 @@ int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, List *list)
         {
             if (p == node1)
                 continue;
+
             e = list -> tail;
             list_ins_next(list, e, (const void *)p);
-            if (ktree_path(tree, p, node2, list) == 0) {
-                list_rem_next(list, e, (void **)&tmp);
-            }
-            else {
+
+            if (ktree_path(tree, p, node2, list)) {
                 return 1;
             }
+
+            list_rem_next(list, e, (void **)&tmp);
         }
 
     list_rem_next(list, t, (void **)&tmp);
+
     return 0;
     
 }
