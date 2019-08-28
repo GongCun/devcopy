@@ -1,6 +1,8 @@
 #ifndef _MY_KTREE_H
 #define _MY_KTREE_H
 
+#include "list.h"
+
 /* Define the structure for k-ary tree nodes */
 typedef struct KTreeNode_ {
     void              *ktn_data;
@@ -26,6 +28,7 @@ void ktree_rem_first(KTree *tree, KTreeNode *node);
 void ktree_rem_next(KTree *tree, KTreeNode *node);
 void ktree_print(KTree *tree, KTreeNode *node);
 KTreeNode *ktree_find(KTree *tree, KTreeNode *node, void *data);
+int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, List *list);
 
 #define ktree_size(tree) ((tree) -> kt_size)
 #define ktree_root(tree) ((tree) -> kt_root)

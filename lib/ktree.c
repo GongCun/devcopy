@@ -159,4 +159,59 @@ KTreeNode *ktree_find(KTree *tree, KTreeNode *node, void *data)
                     return ret;
             }
     }
+    return NULL;
+}
+
+
+int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, List *list)
+{
+    KTreeNode *p, *tmp;
+    ListElmt *e, *t;
+    
+    
+    if (node1 == node2)
+        return 1;
+
+    /* Path: node1 -> child -> node2 */
+    for (p = node1 -> ktn_first_child;
+         p;
+         p = p -> ktn_next_sibling)
+        {
+            e = list -> tail;
+            list_ins_next(list, e, (const void *)p);
+            if (ktree_path(tree, p, node2, list) == 0) {
+                list_rem_next(list, e, (void **)&tmp);
+            }
+            else {
+                return 1;
+            }
+
+        }
+
+    /* Path: node1 -> parent -> node2 */
+    p = node1 -> ktn_parent;
+    t = list -> tail;
+    list_ins_next(list, t, (const void *)p);
+    if (p == node2)
+        return 1;
+    
+    for (p = p -> ktn_first_child;
+         p;
+         p = p -> ktn_next_sibling)
+        {
+            if (p == node1)
+                continue;
+            e = list -> tail;
+            list_ins_next(list, e, (const void *)p);
+            if (ktree_path(tree, p, node2, list) == 0) {
+                list_rem_next(list, e, (void **)&tmp);
+            }
+            else {
+                return 1;
+            }
+        }
+
+    list_rem_next(list, t, (void **)&tmp);
+    return 0;
+    
 }

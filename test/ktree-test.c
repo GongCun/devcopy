@@ -18,9 +18,10 @@ static int compare(const void *key1, const void *key2)
 int main(int argc, char *argv[])
 {
     KTree *tree;
-    KTreeNode *p;
+    KTreeNode *p, *n1, *n2;
     int *data;
-    int i;
+    int i, j;
+    List *list;
     
     tree = malloc(sizeof(KTree));
     if (tree == NULL) {
@@ -64,13 +65,30 @@ int main(int argc, char *argv[])
     ktree_print(tree, ktree_root(tree));
     putchar('\n');
 
-    /* printf("Find child: "); */
-    /* scanf("%d", &i); */
-    p = ktree_find(tree, ktree_root(tree), &i);
-    if (p) {
-        tree -> kt_print(p -> ktn_data);
-        putchar('\n');
+    /* test find path */
+    printf("input start and stop node: ");
+    scanf("%d %d", &i, &j);
+    printf("i = %d, j = %d\n", i, j);
+    list = malloc(sizeof(List));
+    if (list == NULL) {
+        err_sys("malloc list");
     }
+    list_init(list, free);
+    n1 = ktree_find(tree, ktree_root(tree), &i);
+    n2 = ktree_find(tree, ktree_root(tree), &j);
+    int ret = ktree_path(tree, n1, n2, list);
+    printf("ret = %d\n", ret);
+
+    for (ListElmt *e = list -> head;
+         e;
+         e = e -> next)
+        {
+            p = (KTreeNode *)e -> data;
+            tree -> kt_print (p -> ktn_data);
+        }
+    putchar('\n');
+
     ktree_destroy(tree);
+    printf("size: %d\n", tree -> kt_size);
     
 }
