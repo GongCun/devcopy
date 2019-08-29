@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     list_init(list, free);
     n1 = ktree_find(tree, ktree_root(tree), &i);
     n2 = ktree_find(tree, ktree_root(tree), &j);
-    int ret = ktree_path(tree, n1, n2, list);
+    int ret = ktree_path(tree, n1, n2, NULL, list);
     printf("ret = %d\n", ret);
 
     for (ListElmt *e = list -> head;
