@@ -163,10 +163,13 @@ KTreeNode *ktree_find(KTree *tree, KTreeNode *node, void *data)
 }
 
 
-int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, KTreeNode *xnode, List *list)
+int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, List *miss, List *list)
 {
     KTreeNode *p, *parent, *tmp;
     ListElmt *t, *t2;
+
+    if (node1 == NULL || node2 == NULL)
+        return 0;
     
     t = list -> tail;
     list_ins_next(list, t, (const void *)node1);
@@ -174,60 +177,25 @@ int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, KTreeNode *xnode
     if (node1 == node2)
         return 1;
 
-    /* Path: node1 -> child -> node2 */
     for (p = node1 -> ktn_first_child;
          p;
          p = p -> ktn_next_sibling)
         {
-            /* t2 = list -> tail; */
-            /* list_ins_next(list, t2, (const void *)p); */
-            if (p == xnode)
+            if (list_find(miss, (void *)p))
                 continue;
 
-            if (ktree_path(tree, p, node2, xnode, list)) {
+            if (ktree_path(tree, p, node2, miss, list)) {
                 return 1;
             }
 
             /* list_rem_next(list, t2, (void **)&tmp); */
         }
 
+    list_ins_next(miss, NULL, (const void *)node1);
+
     p = node1 -> ktn_parent;
-    if (ktree_path(tree, p, node2, node1, list))
+    if (p && ktree_path(tree, p, node2, miss, list))
         return 1;
-    
-    
-
-    /* /\* Path: node1 -> parent -> ... -> node2 *\/ */
-    /* for (parent = node1 -> ktn_parent; */
-    /*      parent; */
-    /*      parent = parent -> ktn_parent) */
-    /*     { */
-    /*         /\* t = list -> tail; *\/ */
-    /*         /\* list_ins_next(list, t, (const void *)parent); *\/ */
-
-
-    /*         if (parent == node2) */
-    /*             return 1; */
-    
-    /*         for (p = parent -> ktn_first_child; */
-    /*              p; */
-    /*              p = p -> ktn_next_sibling) */
-    /*             { */
-    /*                 if (p == node1) */
-    /*                     continue; */
-
-    /*                 t2 = list -> tail; */
-    /*                 list_ins_next(list, t2, (const void *)p); */
-
-    /*                 if (ktree_path(tree, p, node2, list)) { */
-    /*                     return 1; */
-    /*                 } */
-
-    /*                 list_rem_next(list, t2, (void **)&tmp); */
-    /*             } */
-
-    /*         /\* list_rem_next(list, t, (void **)&tmp); *\/ */
-    /*     } */
 
     list_rem_next(list, t, (void **)&tmp);
     return 0;
