@@ -107,11 +107,17 @@ int main(int argc, char *argv[])
 
     trim_list(list);
 
+    ListElmt *save = NULL;
     for (ListElmt *e = list -> head;
          e;
          e = e -> next)
         {
             p = (KTreeNode *)e -> data;
+            if (save) {
+                KTreeNode *tmp = (KTreeNode *)save -> data;
+                printf("%s ", tmp -> ktn_parent == p ? "up": "down");
+            }
+            save = e;
             tree -> kt_print (p -> ktn_data);
         }
     putchar('\n');
