@@ -84,3 +84,16 @@ int list_rem_next(List *list, ListElmt *element, void **data) {
 
     return 0;
 }
+
+ListElmt *list_find(ListElmt *node, void *data)
+{
+    ListElmt *p;
+    for (p = node;
+         p;
+         p = p -> next)
+        {
+            if (p -> data == data)
+                return p;
+        }
+    return NULL;
+}

@@ -165,8 +165,8 @@ KTreeNode *ktree_find(KTree *tree, KTreeNode *node, void *data)
 
 int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, List *miss, List *list)
 {
-    KTreeNode *p, *parent, *tmp;
-    ListElmt *t, *t2;
+    KTreeNode *p, *tmp;
+    ListElmt *t;
 
     if (node1 == NULL || node2 == NULL)
         return 0;
@@ -181,22 +181,22 @@ int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, List *miss, List
          p;
          p = p -> ktn_next_sibling)
         {
-            if (list_find(miss, (void *)p))
+            if (list_find(miss -> head, (void *)p))
                 continue;
 
             if (ktree_path(tree, p, node2, miss, list)) {
                 return 1;
             }
 
-            /* list_rem_next(list, t2, (void **)&tmp); */
         }
 
     list_ins_next(miss, NULL, (const void *)node1);
 
     p = node1 -> ktn_parent;
-    if (p && ktree_path(tree, p, node2, miss, list))
+    if (ktree_path(tree, p, node2, miss, list))
         return 1;
 
+    /* Actually will never run */
     list_rem_next(list, t, (void **)&tmp);
     return 0;
     

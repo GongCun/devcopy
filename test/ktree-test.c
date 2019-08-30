@@ -14,6 +14,24 @@ static int compare(const void *key1, const void *key2)
     return *(int *)key1 == *(int *)key2 ? 1 : 0;
 }
 
+static void trim_list(List *list)
+{
+    ListElmt *p;
+    KTreeNode *t;
+
+    p = list -> head;
+    while (p) {
+        while (list_find(p -> next, p -> data)) {
+            while (1) {
+                list_rem_next(list, p, (void **)&t);
+                if (t == p -> data)
+                    break;
+            }
+        }
+        p = p -> next;
+    }
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -21,7 +39,7 @@ int main(int argc, char *argv[])
     KTreeNode *p, *n1, *n2;
     int *data;
     int i, j;
-    List *list;
+    List *list, *miss;
     
     tree = malloc(sizeof(KTree));
     if (tree == NULL) {
@@ -69,15 +87,25 @@ int main(int argc, char *argv[])
     printf("input start and stop node: ");
     scanf("%d %d", &i, &j);
     printf("i = %d, j = %d\n", i, j);
+
     list = malloc(sizeof(List));
     if (list == NULL) {
         err_sys("malloc list");
     }
     list_init(list, free);
+
+    miss = malloc(sizeof(List));
+    if (miss == NULL) {
+        err_sys("malloc list");
+    }
+    list_init(miss, free);
+
     n1 = ktree_find(tree, ktree_root(tree), &i);
     n2 = ktree_find(tree, ktree_root(tree), &j);
-    int ret = ktree_path(tree, n1, n2, NULL, list);
+    int ret = ktree_path(tree, n1, n2, miss, list);
     printf("ret = %d\n", ret);
+
+    trim_list(list);
 
     for (ListElmt *e = list -> head;
          e;
