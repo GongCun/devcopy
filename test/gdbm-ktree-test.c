@@ -1,5 +1,6 @@
 #include "devcopy.h"
 #include "error.h"
+#include "ktree.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <ndbm.h>
@@ -13,6 +14,63 @@
 
 #define MYBUFLEN 1024
 #define DB_FILE "./devcopy.dbm"
+
+static void retrieve_data(DBM *dbm_db, KTree *tree, KTreeNode *node, uLong pv);
+
+static int compare_comm(const void *key1, const void *key2)
+{
+    struct commit_info *p1, *p2;
+
+    p1 = (struct commit_info *)key1;
+    p2 = (struct commit_info *)key2;
+    
+    return *(uLong *)p1 -> cm_version == *(uLong *)p2 -> cm_version ? 1 : 0;
+}
+
+static void print_comm(void *data)
+{
+    struct commit_info *p;
+    char buf[MAX_STR];
+    time_t now, between;
+    int n;
+    
+    p = (struct commit_info *)data;
+
+    printf("%lx - ", p -> cm_version);
+
+    now = time(NULL);
+    between = now - p -> cm_date;
+    /*
+     * 1 minute = 60 sec
+     * 1 hour   = 60 minutes = 3600 sec
+     * 1 day    = 24 hours   = 24 * 3600 sec
+     * 1 week   = 7 days     = 7 * 24 * 3600 sec
+     */
+    if (between < 3600) {
+        n = between / 60 + 1;
+        printf("(%d minute%s ago)", n, n == 1 ? "" : "s");
+    }
+    else if (between < 3600 * 24 * 2) {
+        n = between / 3600 + 1;
+        printf("(%d hour%s ago)", n, n == 1 ? "" : "s");
+    }
+    else if (between < 3600 * 24 * 7) {
+        n = between / (3600 * 24) + 1;
+        printf("(%d day%s ago)", n, n == 1 ? "" : "s");
+    }
+    else {
+        n = between / (3600 * 24 * 7) + 1;
+        printf("(%d week%s ago)", n, n == 1 ? "" : "s");
+    }
+
+    /* sscanf(buf, "%s\n%*s", p -> cm_message); */
+    sscanf(p -> cm_message, "%s\n%*s", buf);
+    buf[strlen(buf)] = '\0';
+    printf(" %s - %s", buf, p -> cm_author);
+    if (p -> cm_current_flag) {
+        printf(" (HEAD)");
+    }
+}
 
 static int chk_emp_comm(const char *str)
 {
@@ -197,6 +255,7 @@ static void store_record(void)
         err_quit("%s", gdbm_strerror(gdbm_errno));
     }
 
+    /* Insert the information to the db. */
 
     while (1) {
         p = &comm;
@@ -208,6 +267,7 @@ static void store_record(void)
         }
 
         if (s == NULL) {
+            putchar('\n');
             break;
         }
         s = commit_message();
@@ -247,29 +307,67 @@ static void store_record(void)
         }
     }
 
-    /* Retrieving data */
+    KTree *tree = malloc(sizeof(KTree));
+    if (tree == NULL) {
+        err_sys("malloc");
+    }
+    ktree_init(tree, free, print_comm);
+    tree -> kt_compare = compare_comm;
+
+    retrieve_data(dbm_db, tree, NULL, 0L);
+
+    ktree_print2d(tree, tree->kt_root, " ");
+
+}
+
+void retrieve_data(DBM *dbm_db, KTree *tree, KTreeNode *node, uLong pv)
+{
+    /* Retrieving data & building the tree. */
+    datum dbm_key, dbm_data;
+    KTreeNode *p;
+    struct commit_info *data;
+
+    /* printf("%lx\n", pv); */
+
     for (dbm_key = dbm_firstkey(dbm_db);
-            dbm_key.dptr;
-            dbm_key = dbm_nextkey(dbm_db))
+         dbm_key.dptr;
+         dbm_key = dbm_nextkey(dbm_db))
         {
             dbm_data = dbm_fetch(dbm_db, dbm_key);
             if (dbm_data.dptr) {
-                /* printf("Data retrieved\n"); */
-                p = (struct commit_info *)dbm_data.dptr;
-                s = ctime(&p->cm_date);
-                s[strlen(s) - 1] = '\0'; /* ctime() end with '\n' */
-
-                printf("author: %s\n", p->cm_author);
-                printf("date: %s\n", s);
-                printf("version: %lx\n", p->cm_version);
-                printf("parent version: %lx\n", p->cm_pversion);
-                printf("message: \n%s\n", p->cm_message);
-
-            }
-            else {
-                printf("No data found\n");
+                data = (struct commit_info *)dbm_data.dptr;
+                if (data -> cm_pversion == pv) {
+                    printf("pv = %lx\n", pv);
+                    printf("data -> cm_version = %lx\n", data -> cm_version);
+                    printf("data -> cm_pversion = %lx\n", data -> cm_pversion);
+                    ktree_ins_child(tree, node, data);
+                }
             }
         }
+
+
+    if (node == NULL) {
+        /* printf("%p\n", node); */
+        /* node = ktree_root(tree); */
+        /* printf("%p\n", node); */
+        p = ktree_root(tree);
+        data = (struct commit_info *)p -> ktn_data;
+        retrieve_data(dbm_db, tree, p, data -> cm_version);
+    }
+    else {
+        
+
+    for (p = node -> ktn_first_child;
+         p;
+         p = p -> ktn_next_sibling)
+        {
+            /* printf("xxx hello\n"); */
+            data = (struct commit_info *)p -> ktn_data;
+            retrieve_data(dbm_db, tree, p, data -> cm_version);
+        }
+    }
+
+    return;
 }
 
 int main(int argc, char *argv[])
