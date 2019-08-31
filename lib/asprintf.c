@@ -1,7 +1,4 @@
-#ifdef _AIX
-#include "devcopy.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "asprintf.h"
 
 int asprintf(char **strp, const char *format, ...)
 {
@@ -36,5 +33,3 @@ int asprintf(char **strp, const char *format, ...)
 
     return count;
 }
-
-#endif

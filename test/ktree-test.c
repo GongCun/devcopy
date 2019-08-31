@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
     int ret = ktree_path(tree, n1, n2, miss, list);
     printf("ret = %d\n", ret);
 
-    ktree_print2d(tree, tree->kt_root, "");
+    ktree_print2d(tree, tree->kt_root, " ");
 
     compress_path(list);
 

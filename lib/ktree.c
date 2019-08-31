@@ -1,4 +1,5 @@
 #include "ktree.h"
+#include "asprintf.h"
 #include "error.h"
 #include <stdlib.h>
 #include <string.h>
@@ -220,7 +221,7 @@ void ktree_print2d (KTree *tree, KTreeNode *node, const char *indent) {
         {
             if (p -> ktn_next_sibling == NULL) {
                 printf("%s \\\n", indent);
-                if (asprintf(&temp, "%s ", indent) == -1)
+                if (asprintf(&temp, "%s  ", indent) == -1)
                     err_sys("asprintf");
             }
             else {
