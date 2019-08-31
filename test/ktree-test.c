@@ -14,7 +14,7 @@ static int compare(const void *key1, const void *key2)
     return *(int *)key1 == *(int *)key2 ? 1 : 0;
 }
 
-static void trim_list(List *list)
+static void compress_path(List *list)
 {
     ListElmt *p;
     KTreeNode *t;
@@ -105,7 +105,9 @@ int main(int argc, char *argv[])
     int ret = ktree_path(tree, n1, n2, miss, list);
     printf("ret = %d\n", ret);
 
-    trim_list(list);
+    ktree_print2d(tree, tree->kt_root, "");
+
+    compress_path(list);
 
     ListElmt *save = NULL;
     for (ListElmt *e = list -> head;

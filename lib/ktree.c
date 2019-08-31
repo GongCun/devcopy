@@ -1,4 +1,5 @@
 #include "ktree.h"
+#include "error.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -202,13 +203,14 @@ int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, List *miss, List
     
 }
 
-void ktree_print2d (KTree *tree, KTreeNode *node, int depth) {
+void ktree_print2d (KTree *tree, KTreeNode *node, const char *indent) {
+
+    char *temp;
+    
     if (node == NULL || tree -> kt_print == NULL)
         return;
 
-    for (int i = 0; i < depth; i++) {
-        printf("\t");
-    }
+    printf("%s", indent);
     tree -> kt_print (node -> ktn_data);
     putchar('\n');
 
@@ -216,6 +218,18 @@ void ktree_print2d (KTree *tree, KTreeNode *node, int depth) {
          p;
          p = p -> ktn_next_sibling)
         {
-            ktree_print2d(tree, p, depth + 1);
+            if (p -> ktn_next_sibling == NULL) {
+                printf("%s \\\n", indent);
+                if (asprintf(&temp, "%s ", indent) == -1)
+                    err_sys("asprintf");
+            }
+            else {
+                printf("%s|\\\n", indent);
+                if (asprintf(&temp, "%s| ", indent) == -1)
+                    err_sys("asprintf");
+            }
+
+            ktree_print2d(tree, p, temp);
+            free(temp);
         }
 }

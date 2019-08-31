@@ -1,5 +1,5 @@
 ROOT = ..
-EXTRA := -fPIC
+EXTRA := -fPIC -D_GNU_SOURCE
 include $(ROOT)/Make.defines
 
 OBJS = ktree.o list.o error.o
