@@ -201,3 +201,21 @@ int ktree_path(KTree *tree, KTreeNode *node1, KTreeNode *node2, List *miss, List
     return 0;
     
 }
+
+void ktree_print2d (KTree *tree, KTreeNode *node, int depth) {
+    if (node == NULL || tree -> kt_print == NULL)
+        return;
+
+    for (int i = 0; i < depth; i++) {
+        printf("\t");
+    }
+    tree -> kt_print (node -> ktn_data);
+    putchar('\n');
+
+    for (KTreeNode *p = node -> ktn_first_child;
+         p;
+         p = p -> ktn_next_sibling)
+        {
+            ktree_print2d(tree, p, depth + 1);
+        }
+}
