@@ -11,3 +11,9 @@ sudo apt-get install -y gdbmtool
 - Draw the k-ary tree (include description), highlight the current node.
 - Find the path from current versiont to the target version, rollback or
   update thru the path.
+- Wrap the functions to library.
+- Re-write the devcopy, save the backward files (undo), managed by the
+  version control. The versioned files saved in a directory named by
+  the version-hash-code:
+  version-code -- chg.files, undo.files, hash.files.
+

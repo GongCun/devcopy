@@ -1,16 +1,13 @@
-CC = xlc
-CFLAGS = -O2 -q64
-LIB = -lz
+ROOT = .
+OS = $(shell uname -s | tr 'A-Z' 'a-z')
+include $(ROOT)/Make.defines.$(OS)
+EXTRALIBS = -lgdbm_compat -lgdbm -lz
+
+CPPFLAGS = -I$(LDDIR) -I$(ROOT)
 
 PROGS = devcopy devcopy-hash devcopy-delta
 
 all:	$(PROGS)
 
-devcopy: devcopy.c asprintf.c
-	$(CC) $(CFLAGS) -o $@ $^ $(LIB)
-
-devcopy-hash: devcopy-hash.c asprintf.c
-	$(CC) $(CFLAGS) -o $@ $^ $(LIB)
-
-devcopy-delta: devcopy-delta.c
-	$(CC) $(CFLAGS) -o $@ $^
+$(PROGS): %: %.o
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -o $@ $(LDFLAGS) $(LDLIBS)

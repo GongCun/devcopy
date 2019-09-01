@@ -1,5 +1,6 @@
 ROOT = ..
-include $(ROOT)/Make.defines
+OS = $(shell uname -s | tr 'A-Z' 'a-z')
+include $(ROOT)/Make.defines.$(OS)
 EXTRALIBS = -lgdbm_compat -lgdbm -lz
 
 CPPFLAGS = -I$(LDDIR) -I$(ROOT)
