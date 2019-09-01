@@ -42,7 +42,7 @@ static int compare_comm(const void *key1, const void *key2)
     p1 = (struct commit_info *)key1;
     p2 = (struct commit_info *)key2;
     
-    return *(uLong *)p1 -> cm_version == *(uLong *)p2 -> cm_version ? 1 : 0;
+    return p1 -> cm_version == p2 -> cm_version ? 1 : 0;
 }
 
 static void print_comm(void *data)
@@ -82,7 +82,8 @@ static void print_comm(void *data)
     }
 
     /* sscanf(buf, "%s\n%*s", p -> cm_message); */
-    sscanf(p -> cm_message, "%s\n%*s", buf);
+    /* char junk[MAX_STR]; */
+    sscanf(p -> cm_message, "%[^\n]", buf);
     buf[strlen(buf)] = '\0';
     printf(" %s - %s", buf, p -> cm_author);
     if (p -> cm_current_flag) {
@@ -251,7 +252,15 @@ static uLong current_version(DBM *dbm_db, struct commit_info **cm)
             if (dbm_data.dptr) {
                 p = (struct commit_info *)dbm_data.dptr;
                 if (p->cm_current_flag) {
-                    *cm = p;
+                    /*
+                     *  _Attention_ : dbm_fetch() will change the pointer, so
+                     *  memory needs to be allocated if it's to be used in the
+                     *  future.
+                     */
+                    *cm = malloc(sizeof(struct commit_info));
+                    if (*cm == NULL)
+                        err_sys("malloc");
+                    memcpy(*cm, p, dbm_data.dsize);
                     return p->cm_version;
                 }
             }
@@ -263,8 +272,7 @@ static void store_record(void)
 {
     int n;
     struct commit_info comm, *p, *pcv, *v;
-    /* uLong current_version = 0; */
-    char *s, c;
+    char *s, c[MYBUFLEN];
 
     datum dbm_key, dbm_data;
     
@@ -290,11 +298,14 @@ static void store_record(void)
     printf("current version: %lx\n", x);
 
     printf("want to rollback? (Y/N): ");
-    scanf(" %c", &c);
-    if (c == 'y' || c == 'Y') {
+    fgets(c, sizeof(c), stdin);
+    /* scanf(" %c%*s", &c); */
+    if (c[0] == 'y' || c[0] == 'Y') {
         uLong previous;
         printf("select a version to rollback: ");
-        scanf("%lx", &previous);
+        fgets(c, sizeof(c), stdin);
+        /* sscanf("%lx", &previous); */
+        sscanf(c, "%lx\n", &previous);
         printf("rollback to %lx\n", previous);
 
         /* Fetch the struct from database, then search the struct from the tree */
@@ -303,6 +314,26 @@ static void store_record(void)
         dbm_data = dbm_fetch(dbm_db, dbm_key);
         if (dbm_data.dptr) {
             v = (struct commit_info *)dbm_data.dptr;
+
+            /* Change the current version flag. */
+            v -> cm_current_flag = 1;
+            dbm_key.dptr = (void *)&v -> cm_version;
+            dbm_key.dsize = sizeof(uLong);
+            dbm_data.dptr = (void *)v;
+            dbm_data.dsize = sizeof(struct commit_info);
+            n = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
+            if (n != 0)
+                err_quit(gdbm_strerror(gdbm_errno));
+
+            p -> cm_current_flag = 0;
+            dbm_key.dptr = (void *)&p -> cm_version;
+            dbm_key.dsize = sizeof(uLong);
+            dbm_data.dptr = (void *)p;
+            dbm_data.dsize = sizeof(struct commit_info);
+            n = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
+            if (n != 0)
+                err_quit(gdbm_strerror(gdbm_errno));
+            
             
             /* Display the rollback path */
             List *list, *miss;
@@ -347,26 +378,31 @@ static void store_record(void)
             else {
                 printf("can't find path\n");
             }
+            free(p);
+            p = NULL;
         }
 
     }
-    
 
     /* Insert the information to the db. */
 
     while (1) {
         p = &comm;
-        printf("input your name: ");
 
+        /* Input author name. */
+        printf("input your name: ");
+        /* puts("input your name: "); */
+        /* fflush(stdout); */
         s = fgets(p->cm_author, sizeof(p->cm_author), stdin);
         if (s != NULL && strlen(p->cm_author) > 0) {
             p->cm_author[strlen(p->cm_author) - 1] = '\0';
         }
-
         if (s == NULL) {
             putchar('\n');
             break;
         }
+
+        /* Input the commit message. */
         s = commit_message();
         if (s == NULL) {
             err_quit("\nFailed to parse commit message.");
@@ -374,6 +410,8 @@ static void store_record(void)
         memset(p->cm_message, '\0', sizeof(p->cm_message));
         strncpy(p->cm_message, s, sizeof(p->cm_message) - 1);
         free(s);
+
+        /* Generate other information automatically */
         p->cm_date = commit_date();
         p->cm_version = commit_version();
         pcv = NULL;
@@ -391,6 +429,7 @@ static void store_record(void)
             if (n != 0) {
                 err_quit(gdbm_strerror(gdbm_errno));
             }
+            free(pcv);
         }
 
         /* Insert new commit. */
