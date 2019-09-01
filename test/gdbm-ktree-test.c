@@ -15,6 +15,24 @@
 #define MYBUFLEN 1024
 #define DB_FILE "./devcopy.dbm"
 
+static void compress_path(List *list)
+{
+    ListElmt *p;
+    KTreeNode *t;
+
+    p = list -> head;
+    while (p) {
+        while (list_find(p -> next, p -> data)) {
+            while (1) {
+                list_rem_next(list, p, (void **)&t);
+                if (t == p -> data)
+                    break;
+            }
+        }
+        p = p -> next;
+    }
+}
+
 static void retrieve_data(DBM *dbm_db, KTree *tree, KTreeNode *node, uLong pv);
 
 static int compare_comm(const void *key1, const void *key2)
@@ -244,9 +262,9 @@ static uLong current_version(DBM *dbm_db, struct commit_info **cm)
 static void store_record(void)
 {
     int n;
-    struct commit_info comm, *p, *pcv;
+    struct commit_info comm, *p, *pcv, *v;
     /* uLong current_version = 0; */
-    char *s;
+    char *s, c;
 
     datum dbm_key, dbm_data;
     
@@ -254,6 +272,85 @@ static void store_record(void)
     if (!dbm_db) {
         err_quit("%s", gdbm_strerror(gdbm_errno));
     }
+
+    /* Retrieve the data for choosing a previous version to rollback */
+    KTree *tree = malloc(sizeof(KTree));
+    if (tree == NULL) {
+        err_sys("malloc");
+    }
+    ktree_init(tree, free, print_comm);
+    tree -> kt_compare = compare_comm;
+
+    retrieve_data(dbm_db, tree, NULL, 0L);
+    ktree_print2d(tree, tree->kt_root, "");
+
+    uLong x;
+    p = NULL;
+    x = current_version(dbm_db, &p);
+    printf("current version: %lx\n", x);
+
+    printf("want to rollback? (Y/N): ");
+    scanf(" %c", &c);
+    if (c == 'y' || c == 'Y') {
+        uLong previous;
+        printf("select a version to rollback: ");
+        scanf("%lx", &previous);
+        printf("rollback to %lx\n", previous);
+
+        /* Fetch the struct from database, then search the struct from the tree */
+        dbm_key.dptr = (void *)&previous;
+        dbm_key.dsize = sizeof(uLong);
+        dbm_data = dbm_fetch(dbm_db, dbm_key);
+        if (dbm_data.dptr) {
+            v = (struct commit_info *)dbm_data.dptr;
+            
+            /* Display the rollback path */
+            List *list, *miss;
+            KTreeNode *n1, *n2;
+            
+            list = malloc(sizeof(List));
+            if (list == NULL) {
+                err_sys("malloc list");
+            }
+            list_init(list, free);
+
+            miss = malloc(sizeof(List));
+            if (miss == NULL) {
+                err_sys("malloc list");
+            }
+            list_init(miss, free);
+
+            n1 = ktree_find(tree, ktree_root(tree), p);
+            n2 = ktree_find(tree, ktree_root(tree), v);
+            int ret = ktree_path(tree, n1, n2, miss, list);
+            if (ret) {
+                compress_path(list);
+
+                KTreeNode *n;
+                ListElmt *save = NULL;
+                for (ListElmt *e = list -> head;
+                     e;
+                     e = e -> next)
+                    {
+                        n = (KTreeNode *)e -> data;
+                        if (save) {
+                            KTreeNode *tmp = (KTreeNode *)save -> data;
+                            printf("%s ", tmp -> ktn_parent == n ? "up": "down");
+                        }
+                        save = e;
+                        /* tree -> kt_print (n -> ktn_data); */
+                        p = (struct commit_info *)n -> ktn_data;
+                        printf("%lx ", p -> cm_version);
+                    }
+                putchar('\n');
+            }
+            else {
+                printf("can't find path\n");
+            }
+        }
+
+    }
+    
 
     /* Insert the information to the db. */
 
@@ -307,16 +404,6 @@ static void store_record(void)
         }
     }
 
-    KTree *tree = malloc(sizeof(KTree));
-    if (tree == NULL) {
-        err_sys("malloc");
-    }
-    ktree_init(tree, free, print_comm);
-    tree -> kt_compare = compare_comm;
-
-    retrieve_data(dbm_db, tree, NULL, 0L);
-
-    ktree_print2d(tree, tree->kt_root, " ");
 
 }
 
