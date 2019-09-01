@@ -35,7 +35,5 @@ struct commit_info {
 int asprintf(char **strp, const char *format, ...);
 #endif
 
-/* void destroy(void *data); */
-
 
 #endif

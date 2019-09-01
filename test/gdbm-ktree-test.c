@@ -325,7 +325,7 @@ void retrieve_data(DBM *dbm_db, KTree *tree, KTreeNode *node, uLong pv)
     /* Retrieving data & building the tree. */
     datum dbm_key, dbm_data;
     KTreeNode *p;
-    struct commit_info *data;
+    struct commit_info *data, *tmp;
 
     /* printf("%lx\n", pv); */
 
@@ -335,12 +335,20 @@ void retrieve_data(DBM *dbm_db, KTree *tree, KTreeNode *node, uLong pv)
         {
             dbm_data = dbm_fetch(dbm_db, dbm_key);
             if (dbm_data.dptr) {
-                data = (struct commit_info *)dbm_data.dptr;
-                if (data -> cm_pversion == pv) {
-                    printf("pv = %lx\n", pv);
-                    printf("data -> cm_version = %lx\n", data -> cm_version);
-                    printf("data -> cm_pversion = %lx\n", data -> cm_pversion);
+                tmp = (struct commit_info *)dbm_data.dptr;
+                if (tmp -> cm_pversion == pv) {
+                    data = malloc(sizeof(struct commit_info));
+                    if (data == NULL)
+                        err_sys("malloc");
+                    memset(data, 0, sizeof(struct commit_info));
+                    memcpy(data, dbm_data.dptr, dbm_data.dsize);
+                    /* printf("pv = %lx\n", pv); */
+                    /* printf("data -> cm_version = %lx\n", data -> cm_version); */
+                    /* printf("data -> cm_pversion = %lx\n", data -> cm_pversion); */
+                    /* printf("node = %p\n", node); */
                     ktree_ins_child(tree, node, data);
+                    /* tree -> kt_print(tree->kt_root->ktn_data); */
+                    /* putchar('\n'); */
                 }
             }
         }
