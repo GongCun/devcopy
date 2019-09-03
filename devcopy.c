@@ -30,6 +30,28 @@ int chgflg = 0;
 int block_size = BUFLEN; /* 4M */
 unsigned long long total_size;
 
+static int check_child_exit(int status, int *signum)
+{
+    int ret;
+
+    *signum = 0;
+    
+    if (WIFEXITED(status))
+    {
+        ret = WEXITSTATUS(status);
+    }
+    else
+    {
+        ret = -1;
+
+        if (WIFSIGNALED(status))
+            *signum = WTERMSIG(status);
+    }
+
+    return ret;
+}
+
+
 int docopy(int fd, char *buf, int len)
 {
     /* Negative offset is possible, compare the return value with -1 */
@@ -49,7 +71,7 @@ void help(const char *str)
 }
 
 int main(int argc, char *argv[]) {
-    int                 c, len, tmp, p;
+    int                 c, len, tmp, p, ret, status, signum;
     char               *bufin, *bufout;
     char               *fchg, *fin, *fout, *fhash;
     unsigned long long  n, i, abs_seq;
@@ -72,20 +94,25 @@ int main(int argc, char *argv[]) {
                  */
                 chgflg = 1;
                 break;
+
             case 'f':
                 /* Write the hash code to the specific file, suffixed with the
                  * .hash.seq#, similar for delta file (.chg.seq#). */
                 hashflg = 1;
                 break;
+
             case 's':
                 total_size = strtoull(optarg, NULL, 10);
                 break;
+
             case 'p':
                 procs = atoi(optarg);
                 break;
+
             case 'v':
                 verbose = 1;
                 break;
+
             case '?':
                 help(argv[0]);
         }
@@ -254,8 +281,9 @@ int main(int argc, char *argv[]) {
                     {
                         fprintf(stderr, "%llu\n", abs_seq);
                     }
+
                     docopy(fdout, bufin, len);
-                    
+
                     if (chgflg)
                     {
                         slice.seq = abs_seq;
@@ -304,8 +332,20 @@ int main(int argc, char *argv[]) {
         /* parent process continue */
     }
 
-    while (wait(NULL) > 0)
-        ;
+    while ((pid = wait(&status)) > 0)
+    {
+        ret = check_child_exit(status, &signum);
+        if (verbose)
+        {
+            printf("process %ld exit code = %d\n", (long)pid, ret);
+        }
+
+        if (signum)
+        {
+            printf("process %ld abnormal termination, signal number = %d\n",
+                   (long)pid, signum);
+        }
+    }
 
 
     free(bufin);
