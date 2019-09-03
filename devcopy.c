@@ -2,17 +2,19 @@
  * Copyright (C), 2019, Cun Gong (gong_cun@bocmacau.com)
  *
  * Description: Copy the AIX /dev/rhdisk in a way similar to rsync. Divide the
- * file into pieces, compare each pieces, copy the different piece to target
- * file.
+ * file into pieces, compare each piece, and copy the different piece to
+ * target file. Also save the crc32-code of each piece to a hash file for
+ * future use. All generated target files and hash files are versioned.
  */
 
 #include "devcopy.h"
+#include "ktree.h"
+#include "error.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <sys/types.h>
-#include <errno.h>
 #include <memory.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -47,15 +49,15 @@ void help(const char *str)
 }
 
 int main(int argc, char *argv[]) {
-    int c, len, tmp, p;
-    char *bufin, *bufout;
-    char *fchg, *fin, *fout, *fhash;
-    unsigned long long n, i, abs_seq;
-    pid_t pid;
-    off64_t offset;
-    FILE *ffchg;
-    uLong crc, crc0;
-    struct slice slice;
+    int                 c, len, tmp, p;
+    char               *bufin, *bufout;
+    char               *fchg, *fin, *fout, *fhash;
+    unsigned long long  n, i, abs_seq;
+    pid_t               pid;
+    off64_t             offset;
+    FILE               *ffchg;
+    uLong               crc, crc0;
+    struct slice        slice;
 
 
     opterr = 0;
@@ -71,7 +73,7 @@ int main(int argc, char *argv[]) {
                 chgflg = 1;
                 break;
             case 'f':
-                /* write the hash code to the specific file, suffixed with the
+                /* Write the hash code to the specific file, suffixed with the
                  * .hash.seq#, similar for delta file (.chg.seq#). */
                 hashflg = 1;
                 break;
@@ -103,35 +105,33 @@ int main(int argc, char *argv[]) {
                "source file = %s\ntarget file = %s\n",
                total_size, block_size, procs, fin ,fout);
     }
+
     if (total_size == 0) {
-        printf("copy size can't be zero\n");
-        exit(-1);
+        err_quit("copy size can't be zero");
     }
 
     bufin = malloc(block_size);
     if (bufin == NULL) {
-        printf("malloc bufin error");
-        exit(-1);
+        err_sys("malloc input buffer error");
     }
 
     bufout = malloc(block_size);
     if (bufout == NULL) {
-        printf("malloc bufout error");
-        exit(-1);
+        err_sys("malloc output buffer error");
     }
 
 
     if (total_size % block_size)
     {
-        printf("total size must be multiple of 4M\n");
-        exit(-1);
+        err_quit("total size %llu is not multiple of 4M", total_size);
     }
+
     n = total_size / block_size;
     if (procs == 0 || n % procs != 0)
     {
-        printf("block unit %llu must be multiple of procs\n", n);
-        exit(-1);
+        err_quit("block unit %llu must be multiple of procs", n);
     }
+
     printf("total_size = %llu, n = %llu, partial = %llu\n", total_size, n, n/procs);
     fflush(stdout);
 
@@ -139,28 +139,27 @@ int main(int argc, char *argv[]) {
     {
         if (errno != ENOENT)
         {
-            perror("access");
-            exit(-1);
+            err_sys("access");
         }
+
         fdout = creat64(fout, 0644);
         if (fdout < 0)
         {
-            perror("open64");
-            exit(-1);
+            err_sys("create target file %s", fout);
         }
+
         if (ftruncate64(fdout, total_size) < 0)
         {
-            perror("ftruncate64");
-            exit(-1);
+            err_sys("truncate target file to length %llu", total_size);
         }
+
         close(fdout);
     }
 
     for (p = 0; p < procs; p++)
     {
         if ((pid = fork()) < 0) {
-            perror("fork");
-            exit(-1);
+            err_sys("fork");
         }
 
         if (pid == 0)
@@ -174,28 +173,27 @@ int main(int argc, char *argv[]) {
 
             fdin = open64(fin, O_RDONLY);
             if (fdin < 0) {
-                perror("open64 src");
-                exit(-1);
+                err_sys("open input file %s", fin);
             }
+
             fdout = open64(fout, O_RDWR);
             if (fdout < 0) {
-                perror("open64 dst");
-                exit(-1);
+                err_sys("open output file %s", fout);
             }
 
             if (hashflg)
             {
                 if (asprintf(&fhash, "%s.hash.%d", fout, p) < 0)
                 {
-                    perror("asprintf");
-                    exit(-1);
+                    err_sys("asprintf");
                 }
+
                 fdhash = open64(fhash, O_WRONLY|O_CREAT|O_TRUNC, 0644);
                 if (fdhash < 0)
                 {
-                    perror("open64");
-                    exit(-1);
+                    err_sys("open %s", fhash);
                 }
+
                 crc0 = crc32(0L, Z_NULL, 0);
             }
 
@@ -203,44 +201,41 @@ int main(int argc, char *argv[]) {
             {
                 if (asprintf(&fchg, "%s.chg.%d", fout, p) < 0)
                 {
-                    perror("asprintf");
-                    exit(-1);
+                    err_sys("asprintf");
                 }
+
                 ffchg = fopen64(fchg, "w");
                 if (ffchg == NULL)
                 {
-                    perror("fopen64");
-                    exit(-1);
+                    err_sys("open %s", fchg);
                 }
             }
 
-            offset = n/procs * p * block_size;
-            if (lseek64(fdin, offset, SEEK_SET) < 0) {
-                printf("lseek64 fdin");
-                exit(-1);
-            }
-            if (lseek64(fdout, offset, SEEK_SET) < 0) {
-                printf("lseek64 fdout");
-                exit(-1);
+            offset = n / procs * p * block_size;
+
+            if (lseek64(fdin, offset, SEEK_SET) == -1) {
+                err_sys("lseek64 input file %s", fin);
             }
 
-            for (i = 0; i < n/procs; i++) {
+            if (lseek64(fdout, offset, SEEK_SET) == -1) {
+                err_sys("lseek64 output file %s", fout);
+            }
+
+            for (i = 0; i < n / procs; i++) {
                 len = read(fdin, bufin, block_size);
                 if (len < 0) {
-                    perror("read src");
-                    exit(-1);
+                    err_sys("read input");
                 }
+
                 if (len == 0)
                     break;
 
                 if ((tmp = read(fdout, bufout, len)) < 0) {
-                    perror("read dst");
-                    exit(-1);
+                    err_sys("read output");
                 }
+
                 if (tmp != len) {
-                    errno = ENOSPC;
-                    perror("read dst");
-                    exit(-1);
+                    err_exit(ENOSPC, "read output");
                 }
 
                 /* write the crc code as index */
@@ -249,13 +244,12 @@ int main(int argc, char *argv[]) {
                     crc = crc32(crc0, (const Bytef *)bufin, len);
                     if (write(fdhash, &crc, ULONG_LEN) != ULONG_LEN)
                     {
-                        perror("write");
-                        exit(-1);
+                        err_sys("write %s", fhash);
                     }
                 }
 
                 if (memcmp(bufin, bufout, len)) {
-                    abs_seq = i + n/procs * p;
+                    abs_seq = i + n / procs * p;
                     if (verbose)
                     {
                         fprintf(stderr, "%llu\n", abs_seq);
@@ -267,23 +261,42 @@ int main(int argc, char *argv[]) {
                         slice.seq = abs_seq;
                         slice.len = len;
                         slice.buf = bufin;
+
                         if (!fwrite(&slice.seq, sizeof(slice.seq), 1, ffchg))
                         {
-                            perror("fwrite");
-                            exit(-1);
+                            err_sys("fwrite seq to %s", fchg);
                         }
+
                         if (!fwrite(&slice.len, sizeof(slice.len), 1, ffchg))
                         {
-                            perror("fwrite");
-                            exit(-1);
+                            err_sys("fwrite len to %s", fchg);
                         }
+
                         if (!fwrite(slice.buf, slice.len, 1, ffchg))
                         {
-                            perror("fwrite");
-                            exit(-1);
+                            err_sys("fwrite buf to %s", fchg);
                         }
                     }
                 }
+            }
+
+            /* Exit and release resources */
+            if (hashflg)
+            {
+                if (close(fdhash) < 0)
+                {
+                    err_sys("close hash file");
+                }
+                free(fhash);
+            }
+
+            if (chgflg)
+            {
+                if (fclose(ffchg) == EOF)
+                {
+                    err_sys("fclose change file");
+                }
+                free(fchg);
             }
 
             exit(0);
@@ -293,6 +306,7 @@ int main(int argc, char *argv[]) {
 
     while (wait(NULL) > 0)
         ;
+
 
     free(bufin);
     free(bufout);
