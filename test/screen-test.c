@@ -4,35 +4,43 @@
 #include <term.h>
 #include <curses.h>
 #include <unistd.h>
+#include <signal.h>
+
+int grow;
+
+static void handler(int signo)
+{
+    attron(A_BOLD);
+    mvprintw(grow, 0, "The process can't be interrupted!");
+    attroff(A_BOLD);
+}
+
 
 int main()
 {
-    int nrows;
-    int ncolumns;
-    char *cursor, *el;
-    
-
-    if (setupterm(NULL, fileno(stdout), (int *)0) == ERR)
-        err_sys("setupterm");
-
-    nrows = tigetnum("lines");
-    ncolumns = tigetnum("cols");
-
-    printf("rows = %d, columns = %d\n", nrows, ncolumns);
-
-    cursor = tigetstr("cup");
-    el = tigetstr("el");
-    
     int i = 0;
-    
-    while (1) {
-        putp(tparm(cursor, 0, 0));
-        putp(tparm(el));
-        printf("%d", i++);
-        fflush(stdout);
-        sleep(1);
-        
-    }
+    int row;
+    int col;
 
+    initscr();
+
+    getmaxyx(stdscr, row, col);
+    grow = row - 1;
+
+    if (signal(SIGINT, handler) == SIG_ERR)
+        err_sys("signal");
+    
+
+    while (1) {
+        mvprintw(0, 0, "%d", i++);
+        mvprintw(1, 0, "%d", i++);
+        mvprintw(2, 0, "%d", i++);
+        mvprintw(3, 0, "%d", i++);
+        refresh();
+        sleep(1);
+    }
+    
+    getch();
+    endwin();
     
 }
