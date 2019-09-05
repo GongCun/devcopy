@@ -1,9 +1,11 @@
-# Install zlib, gdbm library & tools
+# Install zlib, gdbm, ncurses library & tools
 sudo apt-get update
 sudo apt-get install zlib1g-dev
 sudo apt-get install libgdbm-dev
 sudo apt-get install libgdbm-compat-dev
 sudo apt-get install -y gdbmtool
+sudo apt-get install libncurses5-dev libncursesw5-dev
+sudo apt-get install ncurses-doc
 
 
 # todo
@@ -22,4 +24,6 @@ sudo apt-get install -y gdbmtool
   Attention: devcopy equal to create a new branch.
 
 - Show the copy progress of each process.
+
+  Parent process get the process by reading the shared memory.
 
