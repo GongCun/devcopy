@@ -1,4 +1,5 @@
 #include "devcopy.h"
+#include "error.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,10 +14,10 @@ void help(void)
 int fdout;
 
 int main(int argc, char *argv[]) {
-    FILE *ffchg;
-    size_t readlen;
-    int i, block_size = BUFLEN;
-    struct record record;
+    FILE         *ffchg;
+    size_t        readlen;
+    int           i, block_size = BUFLEN;
+    struct slice  slice;
 
     if (argc < 3)
     {
@@ -35,8 +36,8 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-    record.buf = malloc(block_size);
-    if (record.buf == NULL)
+    slice.buf = malloc(block_size);
+    if (slice.buf == NULL)
     {
         perror("malloc");
         exit(-1);
@@ -54,28 +55,28 @@ int main(int argc, char *argv[]) {
 
         while (1)
         {
-            readlen = fread(&record.seq, sizeof(record.seq), 1, ffchg);
+            readlen = fread(&slice.seq, sizeof(slice.seq), 1, ffchg);
             if (!readlen)
             {
                 break;
             }
-            if (!fread(&record.len, sizeof(record.len), 1, ffchg))
+            if (!fread(&slice.len, sizeof(slice.len), 1, ffchg))
             {
                 perror("fread");
                 exit(-1);
             }
-            if (fread(record.buf, 1, record.len, ffchg) != record.len)
+            if (fread(slice.buf, 1, slice.len, ffchg) != slice.len)
             {
                 perror("fread");
                 exit(-1);
             }
 
-            if (lseek64(fdout, block_size * record.seq, SEEK_SET) < 0)
+            if (lseek64(fdout, block_size * slice.seq, SEEK_SET) < 0)
             {
                 perror("lseek64");
                 exit(-1);
             }
-            if (write(fdout, record.buf, record.len) != record.len)
+            if (write(fdout, slice.buf, slice.len) != slice.len)
             {
                 perror("write");
                 exit(-1);
