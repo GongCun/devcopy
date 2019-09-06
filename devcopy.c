@@ -35,14 +35,6 @@ unsigned long long total_size;
 int global_row;
 
 
-/* static void handler(int signo) */
-/* { */
-/*     attron(A_BOLD); */
-/*     mvprintw(global_row, 0, "The process can't be interrupted!"); */
-/*     attroff(A_BOLD); */
-/* } */
-
-
 static int isrunning(unsigned long long *progress,
                      int procs,
                      unsigned long long partial)
@@ -383,17 +375,10 @@ int main(int argc, char *argv[]) {
     getmaxyx(stdscr, row, col);
     global_row = row - 1;
 
-    /* if (signal(SIGINT, handler) == SIG_ERR) */
-    /*     err_sys("signal"); */
-    
-
     while (isrunning(progress, procs, partial))
     {
         for (p = 0; p < procs; p++)
         {
-            /* if (progress[p] == partial - 1) */
-                /* continue; */
-
             mvprintw(p, 0, "process %-2d complete: %%%.1f",
                      p, 1.0 * progress[p] / partial * 100);
             refresh();
