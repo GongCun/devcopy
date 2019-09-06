@@ -21,6 +21,8 @@
 #include <sys/wait.h>
 #include <limits.h>
 #include <sys/mman.h>
+#include <term.h>
+#include <curses.h>
 
 
 int fdin, fdout, fdhash;
@@ -30,6 +32,30 @@ int hashflg = 0;
 int chgflg = 0;
 int block_size = BUFLEN; /* 4M */
 unsigned long long total_size;
+int global_row;
+
+
+/* static void handler(int signo) */
+/* { */
+/*     attron(A_BOLD); */
+/*     mvprintw(global_row, 0, "The process can't be interrupted!"); */
+/*     attroff(A_BOLD); */
+/* } */
+
+
+static int isrunning(unsigned long long *progress,
+                     int procs,
+                     unsigned long long partial)
+{
+    for (int i = 0; i < procs; i++)
+    {
+        if (progress[i] != partial - 1)
+            return 1;
+    }
+
+    return 0;
+}
+
 
 static int check_child_exit(int status, int *signum)
 {
@@ -75,14 +101,13 @@ int main(int argc, char *argv[]) {
     int                 c, len, tmp, p, ret, status, signum;
     char               *bufin, *bufout;
     char               *fchg, *fin, *fout, *fhash;
-    unsigned long long  n, i, abs_seq;
+    unsigned long long  n, i, abs_seq, partial;
     pid_t               pid;
     off64_t             offset;
     FILE               *ffchg;
     uLong               crc, crc0;
     struct slice        slice;
     unsigned long long *progress;
-    
 
 
     opterr = 0;
@@ -162,7 +187,9 @@ int main(int argc, char *argv[]) {
         err_quit("block unit %llu must be multiple of procs", n);
     }
 
-    printf("total_size = %llu, n = %llu, partial = %llu\n", total_size, n, n/procs);
+    partial = n / procs;
+
+    printf("total_size = %llu, n = %llu, partial = %llu\n", total_size, n, partial);
     fflush(stdout);
 
     if (access(fout, F_OK) < 0)
@@ -251,7 +278,7 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            offset = n / procs * p * block_size;
+            offset = partial * p * block_size;
 
             if (lseek64(fdin, offset, SEEK_SET) == -1) {
                 err_sys("lseek64 input file %s", fin);
@@ -261,7 +288,7 @@ int main(int argc, char *argv[]) {
                 err_sys("lseek64 output file %s", fout);
             }
 
-            for (i = 0; i < n / procs; i++) {
+            for (i = 0; i < partial; i++) {
                 /* Write the progress in the shared memory */
                 progress[p] = i;
 
@@ -293,7 +320,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (memcmp(bufin, bufout, len)) {
-                    abs_seq = i + n / procs * p;
+                    abs_seq = i + partial * p;
                     if (verbose)
                     {
                         fprintf(stderr, "%llu\n", abs_seq);
@@ -350,11 +377,34 @@ int main(int argc, char *argv[]) {
     }
 
     /* Show the progress */
-    for (p = 0; p < procs; p++)
+    int row, col;
+
+    initscr();
+    getmaxyx(stdscr, row, col);
+    global_row = row - 1;
+
+    /* if (signal(SIGINT, handler) == SIG_ERR) */
+    /*     err_sys("signal"); */
+    
+
+    while (isrunning(progress, procs, partial))
     {
-        printf("process %d: %lld\n", p, progress[p]);
+        for (p = 0; p < procs; p++)
+        {
+            /* if (progress[p] == partial - 1) */
+                /* continue; */
+
+            mvprintw(p, 0, "process %-2d complete: %%%.1f",
+                     p, 1.0 * progress[p] / partial * 100);
+            refresh();
+        }
+
         sleep(1);
     }
+
+    mvprintw(procs + 1, 0, "Press any key to continue...");
+    getch();
+    endwin();
 
     while ((pid = wait(&status)) > 0)
     {
@@ -377,3 +427,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
