@@ -4,7 +4,7 @@
  * Description: Copy the AIX /dev/rhdisk in a way similar to rsync. Divide the
  * file into pieces, compare each piece, and copy the different piece to
  * target file. Also save the crc32-code of each piece to a hash file for
- * future use. All generated target files and hash files are versioned.
+ * future use.
  */
 
 #include "devcopy.h"
@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <limits.h>
+#include <sys/mman.h>
 
 
 int fdin, fdout, fdhash;
@@ -80,6 +81,8 @@ int main(int argc, char *argv[]) {
     FILE               *ffchg;
     uLong               crc, crc0;
     struct slice        slice;
+    unsigned long long *progress;
+    
 
 
     opterr = 0;
@@ -183,6 +186,16 @@ int main(int argc, char *argv[]) {
         close(fdout);
     }
 
+    /*
+     * Share copy progress between child and parent process.
+     */
+    progress = mmap(0, sizeof(unsigned long long) * procs,
+                    PROT_READ | PROT_WRITE,
+                    MAP_SHARED | MAP_ANONYMOUS,
+                    -1, 0);
+
+
+    /* Fork process to copy. */
     for (p = 0; p < procs; p++)
     {
         if ((pid = fork()) < 0) {
@@ -249,6 +262,10 @@ int main(int argc, char *argv[]) {
             }
 
             for (i = 0; i < n / procs; i++) {
+                /* Write the progress in the shared memory */
+                progress[p] = i;
+
+                /* Do the copy work */
                 len = read(fdin, bufin, block_size);
                 if (len < 0) {
                     err_sys("read input");
@@ -330,6 +347,13 @@ int main(int argc, char *argv[]) {
             exit(0);
         } /* end of child process */
         /* parent process continue */
+    }
+
+    /* Show the progress */
+    for (p = 0; p < procs; p++)
+    {
+        printf("process %d: %lld\n", p, progress[p]);
+        sleep(1);
     }
 
     while ((pid = wait(&status)) > 0)
