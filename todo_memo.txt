@@ -8,7 +8,7 @@ sudo apt-get install libncurses5-dev libncursesw5-dev
 sudo apt-get install ncurses-doc
 
 
-# todo
+# TODO
 * Create database with dbx, design the data structure.
 * Draw the k-ary tree (include description), highlight the current node.
 * Find the path from current versiont to the target version, rollback or
@@ -27,3 +27,8 @@ sudo apt-get install ncurses-doc
 
   Parent process get the process by reading the shared memory.
 
+# Git cmd
+# push
+git push -u origin version
+# pull
+git pull origin version

@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
                 perror("fread");
                 exit(-1);
             }
-            if (fread(slice.buf, 1, slice.len, ffchg) != slice.len)
+            if (fread(slice.buf, 1, slice.len, ffchg) != (size_t)slice.len)
             {
                 perror("fread");
                 exit(-1);
