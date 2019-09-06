@@ -32,3 +32,6 @@ sudo apt-get install ncurses-doc
 git push -u origin version
 # pull
 git pull origin version
+
+# Copy test
+dd if=/dev/urandom of=./testfile bs=4M count=1024
