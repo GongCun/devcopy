@@ -27,6 +27,9 @@ sudo apt-get install ncurses-doc
 
   Parent process get the process by reading the shared memory.
 
+- Prepare test case.
+- Display the elapse copy time.
+
 # Git cmd
 # push
 git push -u origin version
@@ -46,3 +49,4 @@ Devcopy create the change file & hash file that do not depend on previous
 versions, so it's actually a new branch (not the child of current version). It's
 irresponsible to leave it up to the user to device whether it is a branch or a
 subversion, but now I haven't thought that through yet.
+

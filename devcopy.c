@@ -373,6 +373,7 @@ int main(int argc, char *argv[]) {
                     abs_seq = i + partial * p;
                     if (verbose)
                     {
+                        /* _FIXME_ - Concurrent write have no locks. */
                         fprintf(stderr, "%llu\n", abs_seq);
                     }
 
@@ -430,28 +431,31 @@ int main(int argc, char *argv[]) {
         /* parent process continue */
     }
 
-    /* Show the progress */
-    int row, col;
-
-    initscr();
-    getmaxyx(stdscr, row, col);
-    global_row = row - 1;
-
-    while (isrunning(progress, procs, partial))
+    if (showflg)
     {
-        for (p = 0; p < procs; p++)
+        /* Show the progress */
+        int row, col;
+
+        initscr();
+        getmaxyx(stdscr, row, col);
+        global_row = row - 1;
+
+        while (isrunning(progress, procs, partial))
         {
-            mvprintw(p, 0, "process %-2d complete: %%%.1f",
-                     p, 1.0 * progress[p] / partial * 100);
-            refresh();
+            for (p = 0; p < procs; p++)
+            {
+                mvprintw(p, 0, "process %-2d complete: %%%.1f",
+                         p, 1.0 * progress[p] / partial * 100);
+                refresh();
+            }
+
+            sleep(1);
         }
 
-        sleep(1);
+        mvprintw(procs + 1, 0, "Press any key to continue...");
+        getch();
+        endwin();
     }
-
-    mvprintw(procs + 1, 0, "Press any key to continue...");
-    getch();
-    endwin();
 
     while ((pid = wait(&status)) > 0)
     {
