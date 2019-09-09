@@ -24,12 +24,15 @@
 #include <term.h>
 #include <curses.h>
 
+#define TRACE_FILE "./devcopy.trc"
 
 int fdin, fdout, fdhash;
 int verbose;
 int procs = 1;
 int hashflg = 0;
 int chgflg = 0;
+int bkflg = 0;
+int showflg = 0;
 int block_size = BUFLEN; /* 4M */
 unsigned long long total_size;
 int global_row;
@@ -71,7 +74,7 @@ static int check_child_exit(int status, int *signum)
 }
 
 
-int docopy(int fd, char *buf, int len)
+static int docopy(int fd, char *buf, int len)
 {
     /* Negative offset is possible, compare the return value with -1 */
     if (lseek64(fd, -len, SEEK_CUR) == -1) {
@@ -83,20 +86,39 @@ int docopy(int fd, char *buf, int len)
     return len;
 }
 
-void help(const char *str)
+static void dofwrite(FILE *file, struct slice slice)
 {
-    printf("%s -v -c -f -s size -p procs input output\n", str);
+
+    if (!fwrite(&slice.seq, sizeof(slice.seq), 1, file))
+    {
+        err_sys("fwrite seq");
+    }
+
+    if (!fwrite(&slice.len, sizeof(slice.len), 1, file))
+    {
+        err_sys("fwrite len");
+    }
+
+    if (!fwrite(slice.buf, slice.len, 1, file))
+    {
+        err_sys("fwrite buf");
+    }
+}
+
+static void help(const char *str)
+{
+    printf("%s -P -v -b -c -f -s size -p procs input output\n", str);
     exit(-1);
 }
 
 int main(int argc, char *argv[]) {
     int                 c, len, tmp, p, ret, status, signum;
     char               *bufin, *bufout;
-    char               *fchg, *fin, *fout, *fhash;
+    char               *fchg, *fin, *fout, *fhash, *fbk;
     unsigned long long  n, i, abs_seq, partial;
     pid_t               pid;
     off64_t             offset;
-    FILE               *ffchg;
+    FILE               *ffchg, *ffbk;
     uLong               crc, crc0;
     struct slice        slice;
     unsigned long long *progress;
@@ -104,10 +126,27 @@ int main(int argc, char *argv[]) {
 
     opterr = 0;
 
-    while ((c = getopt(argc, argv, "cfs:p:v")) != EOF)
+    while ((c = getopt(argc, argv, "Pbcfs:p:v")) != EOF)
     {
         switch (c)
         {
+            case 'P':
+                /* Show the progress with curses. In order not to mess with the
+                 * screen, redirect output to trace file. */
+                showflg = 1;
+
+                if (freopen(TRACE_FILE, "w+", stderr) == NULL)
+                {
+                    err_sys("freopen %s", TRACE_FILE);
+                }
+
+                break;
+
+            case 'b':
+                /* Backup the change block. */
+                bkflg = 1;
+                break;
+
             case 'c':
                 /* Specify this flag will generate change files (.chg.seq#).
                  * Don't specify this flag if the change rate is greater than 50%.
@@ -213,6 +252,11 @@ int main(int argc, char *argv[]) {
                     MAP_SHARED | MAP_ANONYMOUS,
                     -1, 0);
 
+    if (progress == MAP_FAILED)
+    {
+        err_sys("mmap");
+    }
+
 
     /* Fork process to copy. */
     for (p = 0; p < procs; p++)
@@ -227,7 +271,7 @@ int main(int argc, char *argv[]) {
 
             if (verbose)
             {
-                printf("child pid = %ld\n", (long)getpid());
+                fprintf(stderr, "child pid = %ld\n", (long)getpid());
             }
 
             fdin = open64(fin, O_RDONLY);
@@ -267,6 +311,20 @@ int main(int argc, char *argv[]) {
                 if (ffchg == NULL)
                 {
                     err_sys("open %s", fchg);
+                }
+            }
+
+            if (bkflg)
+            {
+                if (asprintf(&fbk, "%s.bk.%d", fout, p) < 0)
+                {
+                    err_sys("asprintf");
+                }
+
+                ffbk = fopen64(fbk, "w");
+                if (ffbk == NULL)
+                {
+                    err_sys("open %s", fbk);
                 }
             }
 
@@ -318,6 +376,14 @@ int main(int argc, char *argv[]) {
                         fprintf(stderr, "%llu\n", abs_seq);
                     }
 
+                    if (bkflg)
+                    {
+                        slice.seq = abs_seq;
+                        slice.len = len;
+                        slice.buf = bufout;
+                        dofwrite(ffbk, slice);
+                    }
+
                     docopy(fdout, bufin, len);
 
                     if (chgflg)
@@ -325,21 +391,8 @@ int main(int argc, char *argv[]) {
                         slice.seq = abs_seq;
                         slice.len = len;
                         slice.buf = bufin;
+                        dofwrite(ffchg, slice);
 
-                        if (!fwrite(&slice.seq, sizeof(slice.seq), 1, ffchg))
-                        {
-                            err_sys("fwrite seq to %s", fchg);
-                        }
-
-                        if (!fwrite(&slice.len, sizeof(slice.len), 1, ffchg))
-                        {
-                            err_sys("fwrite len to %s", fchg);
-                        }
-
-                        if (!fwrite(slice.buf, slice.len, 1, ffchg))
-                        {
-                            err_sys("fwrite buf to %s", fchg);
-                        }
                     }
                 }
             }
@@ -361,6 +414,15 @@ int main(int argc, char *argv[]) {
                     err_sys("fclose change file");
                 }
                 free(fchg);
+            }
+
+            if (bkflg)
+            {
+                if (fclose(ffbk) == EOF)
+                {
+                    err_sys("fclose backup file");
+                }
+                free(fbk);
             }
 
             exit(0);
@@ -409,6 +471,10 @@ int main(int argc, char *argv[]) {
 
     free(bufin);
     free(bufout);
+    if (munmap(0, sizeof(unsigned long long) * procs) < 0)
+    {
+        err_sys("munmap");
+    }
 
     return 0;
 }

@@ -35,3 +35,14 @@ git pull origin version
 
 # Copy test
 dd if=/dev/urandom of=./testfile bs=4M count=1024
+dd conv=notrunc if=/dev/urandom of=./testfile bs=4M seek=100 count=1
+openssl md5 ./testfile
+md5sum ./testfile
+cksum ./testfile
+
+# MEMO
+
+Devcopy create the change file & hash file that do not depend on previous
+versions, so it's actually a new branch (not the child of current version). It's
+irresponsible to leave it up to the user to device whether it is a branch or a
+subversion, but now I haven't thought that through yet.
