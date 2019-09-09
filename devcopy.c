@@ -23,6 +23,7 @@
 #include <sys/mman.h>
 #include <term.h>
 #include <curses.h>
+#include <time.h>
 
 #define TRACE_FILE "./devcopy.trc"
 
@@ -122,6 +123,7 @@ int main(int argc, char *argv[]) {
     uLong               crc, crc0;
     struct slice        slice;
     unsigned long long *progress;
+    time_t              daytime;
 
 
     opterr = 0;
@@ -258,6 +260,8 @@ int main(int argc, char *argv[]) {
     }
 
 
+    daytime = time(NULL);
+    
     /* Fork process to copy. */
     for (p = 0; p < procs; p++)
     {
@@ -452,7 +456,23 @@ int main(int argc, char *argv[]) {
             sleep(1);
         }
 
-        mvprintw(procs + 1, 0, "Press any key to continue...");
+        double elapse;
+        elapse = (double)time(NULL) - daytime;
+        if (elapse > 60)
+        {
+            elapse /= 60;
+            mvprintw(procs + 1, 0, "Elapse time: %.2f min%s", elapse,
+                     (elapse > 1 ? "s" : ""));
+        }
+        else
+        {
+            mvprintw(procs + 1, 0, "Elapse time: %llu second%s",
+                     (unsigned long long)elapse,
+                     (elapse > 1 ? "s" : ""));
+        }
+        
+
+        mvprintw(procs + 3, 0, "Press any key to continue...");
         getch();
         endwin();
     }
