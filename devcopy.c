@@ -25,7 +25,6 @@
 #include <curses.h>
 #include <time.h>
 
-#define TRACE_FILE "./devcopy.trc"
 
 int fdin, fdout, fdhash;
 int verbose;
@@ -36,7 +35,7 @@ int bkflg = 0;
 int showflg = 0;
 int block_size = BUFLEN; /* 4M */
 unsigned long long total_size;
-int global_row;
+/* int global_row; */
 
 
 static int isrunning(unsigned long long *progress,
@@ -343,7 +342,8 @@ int main(int argc, char *argv[]) {
             }
 
             for (i = 0; i < partial; i++) {
-                /* Write the progress in the shared memory */
+                /* Write the progress to the shared memory for parent process
+                 * to observer. */
                 progress[p] = i;
 
                 /* Do the copy work */
@@ -438,11 +438,11 @@ int main(int argc, char *argv[]) {
     if (showflg)
     {
         /* Show the progress */
-        int row, col;
+        /* int row, col; */
 
         initscr();
-        getmaxyx(stdscr, row, col);
-        global_row = row - 1;
+        /* getmaxyx(stdscr, row, col); */
+        /* global_row = row - 1; */
 
         while (isrunning(progress, procs, partial))
         {
@@ -495,6 +495,7 @@ int main(int argc, char *argv[]) {
 
     free(bufin);
     free(bufout);
+
     if (munmap(0, sizeof(unsigned long long) * procs) < 0)
     {
         err_sys("munmap");

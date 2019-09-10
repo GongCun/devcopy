@@ -10,6 +10,7 @@
 #define ULONG_LEN  (sizeof(uLong))
 #define MAX_STR    4096
 #define MAX_AUTHOR 64
+#define TRACE_FILE "./devcopy.trc"
 
 struct slice {
     unsigned long long  seq;
