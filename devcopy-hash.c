@@ -39,15 +39,15 @@ void help(const char *str)
 }
 
 int main(int argc, char *argv[]) {
-    int c, len, p;
-    char *bufin;
-    char *fchg, *fin, *fout, *fhash = NULL;
-    unsigned long long n, i, sentry, abs_seq;
-    pid_t pid;
-    off64_t offset;
-    uLong crc0, crc1, crc2;
-    FILE *ffchg;
-    struct slice slice;
+    int                 c, len, p;
+    char               *bufin;
+    char               *fchg, *fin, *fout, *fhash = NULL;
+    unsigned long long  n, i, sentry, abs_seq, partial;
+    pid_t               pid;
+    off64_t             offset;
+    uLong               crc0, crc1, crc2;
+    FILE               *ffchg;
+    struct slice        slice;
 
 
     opterr = 0;
@@ -104,8 +104,7 @@ int main(int argc, char *argv[]) {
 
     bufin = malloc(block_size);
     if (bufin == NULL) {
-        printf("malloc bufin error");
-        exit(-1);
+        err_sys("malloc bufin error");
     }
 
     if (total_size % block_size)
@@ -119,7 +118,10 @@ int main(int argc, char *argv[]) {
         printf("block unit %llu must be multiple of procs\n", n);
         exit(-1);
     }
-    printf("total_size = %llu, n = %llu, partial = %llu\n", total_size, n, n/procs);
+
+    partial = n / procs;
+
+    printf("total_size = %llu, n = %llu, partial = %llu\n", total_size, n, partial);
     fflush(stdout);
 
     for (p = 0; p < procs; p++)
@@ -139,59 +141,60 @@ int main(int argc, char *argv[]) {
 
             fdin = open64(fin, O_RDONLY);
             if (fdin < 0) {
-                perror("open64 src");
-                exit(-1);
+                err_sys("open64 file %s", fin);
             }
+
             fdout = open64(fout, O_RDWR);
             if (fdout < 0) {
-                perror("open64 dst");
-                exit(-1);
+                err_sys("open64 file %s", fout);
             }
 
             fdhash = open64(fhash, O_RDWR);
             if (fdhash < 0)
             {
-                perror("open64");
-                exit(-1);
+                err_sys("open64 file %s", fhash);
             }
 
-            if (asprintf(&fchg, "%s.chg.%d", fout, p) < 0)
+            if (chgflg)
             {
-                perror("asprintf");
-                exit(-1);
-            }
-            ffchg = fopen64(fchg, "w");
-            if (ffchg == NULL)
-            {
-                perror("fopen64");
-                exit(-1);
+                if (asprintf(&fchg, "%s.chg.%d", fout, p) < 0)
+                {
+                    perror("asprintf");
+                    exit(-1);
+                }
+                ffchg = fopen64(fchg, "w");
+                if (ffchg == NULL)
+                {
+                    perror("fopen64");
+                    exit(-1);
+                }
             }
 
             crc0 = crc32(0L, Z_NULL, 0);
 
-            offset = n/procs * p * block_size;
-            if (lseek64(fdin, offset, SEEK_SET) < 0) {
-                printf("lseek64 fdin");
-                exit(-1);
-            }
-            if (lseek64(fdout, offset, SEEK_SET) < 0) {
-                printf("lseek64 fdout");
-                exit(-1);
+            offset = partial * p * block_size;
+
+            if (lseek64(fdin, offset, SEEK_SET) == -1) {
+                err_sys("lseek64 file %s", fin);
             }
 
-            offset = n/procs * p * ULONG_LEN;
-            if (lseek64(fdhash, offset, SEEK_SET) < 0)
+            if (lseek64(fdout, offset, SEEK_SET) == -1) {
+                err_sys("lseek64 file %s", fout);
+            }
+
+            offset = partial * p * ULONG_LEN;
+
+            if (lseek64(fdhash, offset, SEEK_SET) == -1)
             {
-                perror("lseek64");
-                exit(-1);
+                err_sys("lseek64 file %s", fhash);
             }
 
-            for (i = 0, sentry = 0; i < n/procs; i++) {
+            for (i = 0, sentry = 0; i < partial; i++) {
                 len = read(fdin, bufin, block_size);
                 if (len < 0) {
-                    perror("read src");
-                    exit(-1);
+                    err_sys("read file %s", fin);
                 }
+
                 if (len == 0)
                     break;
 
@@ -199,8 +202,7 @@ int main(int argc, char *argv[]) {
 
                 if (read(fdhash, (char *)&crc2, ULONG_LEN) != ULONG_LEN)
                 {
-                    perror("read hash");
-                    exit(-1);
+                    err_sys("read file %s", fhash);
                 }
 
                 if (crc1 != crc2)
@@ -211,15 +213,14 @@ int main(int argc, char *argv[]) {
                         fprintf(stderr, "%llu\n", abs_seq);
                     }
 
-                    if (lseek64(fdhash, -ULONG_LEN, SEEK_CUR) < 0)
+                    if (lseek64(fdhash, -ULONG_LEN, SEEK_CUR) == -1)
                     {
-                        perror("lseek64");
-                        exit(-1);
+                        err_sys("lseek64 file %s", fhash);
                     }
+
                     if (write(fdhash, &crc1, ULONG_LEN) != ULONG_LEN)
                     {
-                        perror("write");
-                        exit(-1);
+                        err_sys("write file %s", fhash);
                     }
 
                     offset = block_size * (i - sentry);
