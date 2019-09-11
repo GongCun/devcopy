@@ -44,7 +44,7 @@ static int isrunning(unsigned long long *progress,
 {
     for (int i = 0; i < procs; i++)
     {
-        if (progress[i] != partial - 1)
+        if (progress[i] != partial)
             return 1;
     }
 
@@ -344,7 +344,7 @@ int main(int argc, char *argv[]) {
             for (i = 0; i < partial; i++) {
                 /* Write the progress to the shared memory for parent process
                  * to observer. */
-                progress[p] = i;
+                progress[p] = i + 1;
 
                 /* Do the copy work */
                 len = read(fdin, bufin, block_size);
@@ -437,12 +437,7 @@ int main(int argc, char *argv[]) {
 
     if (showflg)
     {
-        /* Show the progress */
-        /* int row, col; */
-
         initscr();
-        /* getmaxyx(stdscr, row, col); */
-        /* global_row = row - 1; */
 
         while (isrunning(progress, procs, partial))
         {
@@ -454,6 +449,13 @@ int main(int argc, char *argv[]) {
             }
 
             sleep(1);
+        }
+
+        for (p = 0; p < procs; p++)
+        {
+            mvprintw(p, 0, "process %-2d complete: %%%.1f",
+                     p, 1.0 * progress[p] / partial * 100);
+            refresh();
         }
 
         double elapse;
@@ -470,7 +472,6 @@ int main(int argc, char *argv[]) {
                      (unsigned long long)elapse,
                      (elapse > 1 ? "s" : ""));
         }
-        
 
         mvprintw(procs + 3, 0, "Press any key to continue...");
         getch();

@@ -31,7 +31,7 @@ static int isrunning(unsigned long long *progress,
 {
     for (int i = 0; i < procs; i++)
     {
-        if (progress[i] != partial - 1)
+        if (progress[i] != partial)
             return 1;
     }
 
@@ -58,18 +58,6 @@ static int check_child_exit(int status, int *signum)
     }
 
     return ret;
-}
-
-static int docopy(int fd, char *buf, int len, off64_t offset)
-{
-    if (offset && lseek64(fd, offset, SEEK_CUR) == -1) {
-        return(-1);
-    }
-
-    if (write(fd, buf, len) != len) {
-        return(-1);
-    }
-    return len;
 }
 
 static void dofwrite(FILE *file, struct slice slice)
@@ -122,7 +110,6 @@ int main(int argc, char *argv[]) {
         {
             case 'P':
                 showflg = 1;
-                break;
 
                 if (freopen(TRACE_FILE, "w+", stderr) == NULL)
                 {
@@ -318,7 +305,7 @@ int main(int argc, char *argv[]) {
             for (i = 0, sentry = 0; i < partial; i++) {
                 /* Write the process to the shared memory for parent process to
                    observer */
-                progress[p] = i;
+                progress[p] = i + 1;
 
                 /* Do the copy work */
                 len = read(fdin, bufin, block_size);
@@ -374,6 +361,7 @@ int main(int argc, char *argv[]) {
                         slice.buf = bufout;
                         dofwrite(ffbk, slice);
 
+                        /* Rewind for write */
                         if (lseek64(fdout, -len, SEEK_CUR) == -1)
                         {
                             err_sys("lseek64 backward");
@@ -424,12 +412,7 @@ int main(int argc, char *argv[]) {
 
     if (showflg)
     {
-        /* Show the progress */
-        /* int row, col; */
-
         initscr();
-        /* getmaxyx(stdscr, row, col); */
-        /* global_row = row - 1; */
 
         while (isrunning(progress, procs, partial))
         {
@@ -441,6 +424,14 @@ int main(int argc, char *argv[]) {
             }
 
             sleep(1);
+        }
+
+        /* Update the complete progress */
+        for (p = 0; p < procs; p++)
+        {
+            mvprintw(p, 0, "process %-2d complete: %%%.1f",
+                     p, 1.0 * progress[p] / partial * 100);
+            refresh();
         }
 
         double elapse;
@@ -457,7 +448,6 @@ int main(int argc, char *argv[]) {
                      (unsigned long long)elapse,
                      (elapse > 1 ? "s" : ""));
         }
-        
 
         mvprintw(procs + 3, 0, "Press any key to continue...");
         getch();
