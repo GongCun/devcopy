@@ -1,4 +1,5 @@
 #include "devcopy.h"
+#include "asprintf.h"
 #include "error.h"
 #include <stdio.h>
 #include <stdlib.h>

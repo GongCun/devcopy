@@ -1,14 +1,14 @@
 # Common make definitions.
 
-CC = gcc
+CC = xlc
 LDDIR = $(ROOT)/lib
 LIBMYLIB = $(LDDIR)/libmylib.a
 LDFLAGS = -L$(LDDIR)
-LDLIBS = -lmylib -lz -lncurses
-CFLAGS = -g -Wall -Wextra $(EXTRA)
+LDLIBS = -lmylib -lz -lcurses
+CFLAGS = -O2 -q64 $(EXTRA)
 COMPILE.c = $(CC) $(CFLAGS) $(CPPFLAGS) -c
 LINK.c = $(CC) $(CFLAGS) $(LDFLAGS)
-AR = ar
+AR = ar -X64
 RANLIB = ranlib
 TEMPFILES = core core.* *.o temp.* *.out *~
 

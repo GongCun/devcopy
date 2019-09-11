@@ -9,6 +9,7 @@
 
 #include "devcopy.h"
 #include "ktree.h"
+#include "asprintf.h"
 #include "error.h"
 #include <stdio.h>
 #include <stdlib.h>
