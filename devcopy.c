@@ -444,7 +444,7 @@ int main(int argc, char *argv[]) {
         {
             for (p = 0; p < procs; p++)
             {
-                mvprintw(p, 0, "process %-2d complete: %%%.1f",
+                mvprintw(p, 0, "task %-2d complete: %%%.1f",
                          p, 1.0 * progress[p] / partial * 100);
                 refresh();
             }
@@ -454,7 +454,7 @@ int main(int argc, char *argv[]) {
 
         for (p = 0; p < procs; p++)
         {
-            mvprintw(p, 0, "process %-2d complete: %%%.1f",
+            mvprintw(p, 0, "task %-2d complete: %%%.1f",
                      p, 1.0 * progress[p] / partial * 100);
             refresh();
         }
@@ -498,7 +498,7 @@ int main(int argc, char *argv[]) {
     free(bufin);
     free(bufout);
 
-    if (munmap(0, sizeof(unsigned long long) * procs) < 0)
+    if (munmap(progress, sizeof(unsigned long long) * procs) < 0)
     {
         err_sys("munmap");
     }
