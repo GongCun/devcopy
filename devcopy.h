@@ -6,11 +6,14 @@
 #include <zlib.h>
 #include <ndbm.h>
 
-#define BUFLEN     0x400000L    /* 4M */
-#define ULONG_LEN  (sizeof(uLong))
-#define MAX_STR    4096
-#define MAX_AUTHOR 64
-#define TRACE_FILE "./devcopy.trc"
+#define BUFLEN      0x400000L   /* 4M */
+#define MAX_STR     4096
+#define MAX_AUTHOR  64
+#define ULONG_LEN   (sizeof(uLong))
+#define VERSION_DIR "./.devcopy"
+#define TRACE_FILE  "./devcopy.trc"
+#define FILE_MODE   (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) /* 0644 */
+#define DIR_MODE    (FILE_MODE | S_IXUSR | S_IXGRP | S_IXOTH) /* 0755 */
 
 struct slice {
     unsigned long long  seq;
@@ -26,10 +29,6 @@ struct commit_info {
     char   cm_author[MAX_AUTHOR]; /* submitter                    */
     char   cm_message[MAX_STR];   /* description of commit        */
 };
-
-/* #ifdef _AIX */
-/* int asprintf(char **strp, const char *format, ...); */
-/* #endif */
 
 
 #endif

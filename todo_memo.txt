@@ -26,6 +26,7 @@ sudo apt-get install ncurses-doc
 - Show the copy progress of each process.
 
   Parent process get the process by reading the shared memory.
+  Time needs to be precise to milliseconds.
 
 - Prepare test case.
 - Display the elapse copy time.
