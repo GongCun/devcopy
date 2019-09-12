@@ -22,7 +22,7 @@
 #include <sys/wait.h>
 #include <limits.h>
 #include <sys/mman.h>
-#include <term.h>
+/*#include <term.h>*/
 #include <curses.h>
 #include <time.h>
 
