@@ -5,7 +5,7 @@ include $(ROOT)/Make.defines.$(OS)
 
 CPPFLAGS = -I$(LDDIR) -I$(ROOT)
 
-PROGS = devcopy devcopy-hash devcopy-delta
+PROGS = devcopy devcopy-hash devcopy-delta devcopy-version
 
 all:	$(PROGS)
 

@@ -5,8 +5,10 @@
 #define _GNU_SOURCE
 #include <zlib.h>
 #include <ndbm.h>
+#include <sys/types.h>
+#include <limits.h>
 
-#define BUFLEN      0x400000L   /* 4M */
+#define BUFLEN      0x400000L /* 4M */
 #define MAX_STR     4096
 #define MAX_AUTHOR  64
 #define ULONG_LEN   (sizeof(uLong))
@@ -14,6 +16,12 @@
 #define TRACE_FILE  "./devcopy.trc"
 #define FILE_MODE   (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) /* 0644 */
 #define DIR_MODE    (FILE_MODE | S_IXUSR | S_IXGRP | S_IXOTH) /* 0755 */
+#define DB_FILE     VERSION_DIR	"/devcopy.dbm" /* ./.devcopy/devcopy.dbm */
+#define MYBUFLEN    1024
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 struct slice {
     unsigned long long  seq;
@@ -25,6 +33,7 @@ struct commit_info {
     uLong  cm_version;            /* hash code of commit date     */
     uLong  cm_pversion;           /* parent version               */
     int    cm_current_flag;       /* identify the current version */
+    time_t cm_mtime;              /* time of last modification    */
     time_t cm_date;               /* commit date                  */
     char   cm_author[MAX_AUTHOR]; /* submitter                    */
     char   cm_message[MAX_STR];   /* description of commit        */
