@@ -10,98 +10,42 @@
 #include "ktree.h"
 #include "asprintf.h"
 #include "error.h"
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <regex.h>
 
 int insert;
 int branch;
 int display;
 int verbose;
 
-static int match_name(const char *filename, const char *str)
+static int compare_commit(const void *key1, const void *key2)
 {
-    regex_t regex;
-    int     ret;
-    char    errbuf[MYBUFLEN];
-    char    buf1[PATH_MAX];
-    char    buf2[PATH_MAX];
-    char    *pattern[] = {buf1, buf2};
+    struct commit_info *p1, *p2;
 
-    snprintf(buf1, sizeof(buf1), "%s.(hash|chg|bk).[0-9]+", str);
-    snprintf(buf2, sizeof(buf2), "%s.hash", str);
-
-    for (size_t i = 0;
-         i < sizeof(pattern) / sizeof(pattern[0]);
-         i++)
-    {
-        ret = regcomp(&regex, pattern[i], REG_EXTENDED);
-
-        if (ret) {
-            err_quit("Can't compile regex: %s", pattern);
-        }
-
-        ret = regexec(&regex, filename, 0, NULL, 0);
-        regfree(&regex);
-
-        switch (ret) {
-            case 0:
-                return 1;
-                break;
-
-            case REG_NOMATCH:
-                break;
-
-            default:
-                regerror(ret, &regex, errbuf, sizeof(errbuf));
-                err_quit("Regex match failed: %s", errbuf);
-                break;
-        }
-    }
-
-    return 0;
+    p1 = (struct commit_info *)key1;
+    p2 = (struct commit_info *)key2;
+    
+    return p1 -> cm_version == p2 -> cm_version ? 1 : 0;
 }
-
-static uLong commit_version(void)
-{
-    int fd;
-    uLong crc;
-    char buf[MYBUFLEN];
-
-    fd = open("/dev/urandom", O_RDONLY);
-
-    if (fd < 0) {
-        err_sys("open /dev/urandom");
-    }
-
-    if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
-        err_sys("read /dev/urandom");
-    }
-
-    close(fd);
-
-    crc = crc32(0L, Z_NULL, 0);
-    return crc32(crc, (const Bytef *)buf, sizeof(buf));
-}
-
 
 static void help(const char *prog)
 {
-    err_quit("%s -v -i -c -l file-name", prog);
+    err_quit("%s -v -i -b -c [version] -l [file-name]", prog);
 }
 
 int main(int argc, char *argv[])
 {
-    int c;
-    char *fchg, *fhash, *fbk;
-    char *fname;
+    int                 c, ret;
+    char               *fchg, *fhash, *fbk;
+    char               *fname;
+    struct commit_info  commit_info;
+    struct commit_info *pc;     /* point to current version */
+    struct commit_info *ppc;    /* point to previous commit */
+    DBM                *dbm_db;
+    uLong               checkout = 0L;
+    KTree              *tree;
 
     opterr = 0;
 
-    while ((c = getopt(argc, argv, "icvl")) != EOF)
+    while ((c = getopt(argc, argv, "ibc:vl")) != EOF)
     {
         switch (c)
         {
@@ -113,6 +57,11 @@ int main(int argc, char *argv[])
             case 'b':
                 /* Create a new branch */
                 branch = 1;
+                break;
+
+            case 'c':
+                /* Checkout specific version. */
+                checkout = strtoul(optarg, NULL, 16);
                 break;
 
             case 'l':
@@ -134,58 +83,44 @@ int main(int argc, char *argv[])
 
     fname = argv[optind];
 
-    int verfd;
-    DIR *verdp, *wdp;
+    dbm_db = dbm_open(DB_FILE, O_RDWR | O_CREAT, FILE_MODE);
 
-    if (mkdir(VERSION_DIR, DIR_MODE) < 0 &&
-        errno != EEXIST)
-    {
-        err_sys("mkdir %s", VERSION_DIR);
+    tree = malloc(sizeof(KTree));
+    if (tree == NULL) {
+        err_sys("malloc KTree");
     }
+    ktree_init(tree, free, print_commit);
+    tree -> kt_compare = compare_commit;
+    retrieve_data(dbm_db, tree, NULL, 0L);
 
-    verdp = opendir(VERSION_DIR);
-    if (verdp == NULL) {
-        err_sys("opendir %s", VERSION_DIR);
-    }
-
-    verfd = dirfd(verdp);
-
-    if (verfd < 0)
-    {
-        err_sys("dirfd");
-    }
-
-    /* Create version# */
-    struct commit_info commit_info, *pc;
-    char *verpath;
-    
-    pc = &commit_info;
-    pc->cm_version = commit_version();
-
-    if (asprintf(&verpath, "%08lx", pc->cm_version) < 0) {
-        err_sys("asprintf");
-    }
-
-    if (mkdirat(verfd, verpath, DIR_MODE) < 0) {
-        err_sys("mkdirat");
-    }
-
-    free(verpath);
-    
-
-    /* Check and copy the files to the version# dir */
-
-    struct dirent *dirp;
-
-    wdp = opendir(".");
-    if (wdp == NULL) {
-        err_sys("opendir");
-    }
-
-    while ((dirp = readdir(wdp)) != NULL)
-    {
-        if (match_name(dirp->d_name, fname)) {
-            printf("%s\n", dirp->d_name);
+    if (display) {
+        if (ktree_size(tree) == 0) {
+            err_msg("Repository is empty.");
         }
+        else {
+            ktree_print2d(tree, tree->kt_root, "");
+        }
+        return 0;
+    } /* If just display the version info., we exit here. */
+
+    if (!dbm_db) {
+        err_quit("%s", gdbm_strerror(gdbm_errno));
     }
+
+    if (checkout) {
+        /* Update the current version flag, then rollback the target file to the
+           specific version.
+        */
+        checkout_commit(dbm_db, checkout, tree);
+    }
+
+    if (insert) {
+        pc = &commit_info;
+        memset(pc, 0, sizeof(struct commit_info));
+        insert_commit(dbm_db, pc, basename(fname));
+    }
+
+    return 0;
+
 }
+

@@ -3,10 +3,22 @@
 
 #define STDC_WANT_LIB_EXT1 1
 #define _GNU_SOURCE
+#include "ktree.h"
+#include "list.h"
 #include <zlib.h>
 #include <ndbm.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <regex.h>
+#include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <time.h>
 #include <limits.h>
+#include <libgen.h>
 
 #define BUFLEN      0x400000L /* 4M */
 #define MAX_STR     4096
@@ -23,6 +35,8 @@
 #define PATH_MAX 4096
 #endif
 
+extern int verbose;
+
 struct slice {
     unsigned long long  seq;
     int                 len;
@@ -38,6 +52,16 @@ struct commit_info {
     char   cm_author[MAX_AUTHOR]; /* submitter                    */
     char   cm_message[MAX_STR];   /* description of commit        */
 };
+
+int match_name(const char *filename, const char *str);
+uLong commit_version(void);
+uLong current_version(DBM *dbm_db, struct commit_info **cm);
+void commit_author(struct commit_info *p);
+char *commit_message(struct commit_info *p);
+void print_commit(void *data);
+void retrieve_data(DBM *dbm_db, KTree *tree, KTreeNode *node, uLong pv);
+void insert_commit(DBM *dbm_db, struct commit_info *pc, const char *fname);
+void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree);
 
 
 #endif

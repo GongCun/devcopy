@@ -1,6 +1,7 @@
 #include "devcopy.h"
 #include "error.h"
 
+
 uLong current_version(DBM *dbm_db, struct commit_info **cm)
 {
     struct commit_info *p;
@@ -386,6 +387,10 @@ void insert_commit(DBM *dbm_db, struct commit_info *pc, const char *fname)
     int                 ret;
 
     pc->cm_version = commit_version();
+    if (verbose) {
+        printf("Insert new version: %lx\n", pc->cm_version);
+    }
+
     pc->cm_date = time(NULL);
     ppc = NULL;
     pc->cm_pversion = current_version(dbm_db, &ppc);
@@ -448,7 +453,10 @@ void insert_commit(DBM *dbm_db, struct commit_info *pc, const char *fname)
 
     while ((dirp = readdir(dp)) != NULL) {
         if (match_name(dirp->d_name, fname)) {
-            printf("%s\n", dirp->d_name);
+            if (verbose) {
+                printf("Copying %s to %s\n", dirp->d_name, verpath);
+            }
+
             snprintf(buf, sizeof(buf),
                      "/bin/cp -p ./%s %s",
                      dirp->d_name, verpath);
@@ -481,10 +489,57 @@ static void compress_path(List *list)
     }
 }
 
+static void rollback(List *list)
+{
+    KTreeNode *n;
+    ListElmt *save = NULL;
+    struct commit_info *p, *x;
+    char buf[MYBUFLEN];
+
+
+    for (ListElmt *e = list->head;
+         e;
+         e = e->next)
+    {
+        n = (KTreeNode *)e->data;
+
+        if (verbose) {
+            p = (struct commit_info *)n->ktn_data;
+            printf("%lx", p->cm_version);
+        }
+
+        if (save) {
+            if (verbose) {
+                printf(" -> ");
+            }
+
+            KTreeNode *tmp = (KTreeNode *)save->data;
+            if (tmp->ktn_parent == n) {
+                /* Roll backward. */
+                x = (struct commit_info *)tmp->ktn_data;
+                snprintf(buf, sizeof(buf),
+                         "/usr/local/bin/devcopy-delta %s %s/%lx/*.bk.*",
+                         gfname, VERPATH, x->cm_version);
+            }
+            else {
+                /* Roll forward. */
+                ;
+            }
+            /* printf("%s ", tmp->ktn_parent == n ? "up": "down"); */
+        }
+        save = e;
+
+    }
+
+    if (verbose) {
+        putchar('\n');
+    }
+}
+
 void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
 {
     datum dbm_key, dbm_data;
-    struct commit_info *p, *v, *pp;
+    struct commit_info *p, *v;
     int ret;
     List *list, *miss;
     KTreeNode *n1, *n2;
@@ -556,7 +611,9 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
     ret = ktree_path(tree, n1, n2, miss, list);
     if (ret) {
         compress_path(list);
+        rollback(list);
 
+        /*
         KTreeNode *n;
         ListElmt *save = NULL;
         for (ListElmt *e = list->head;
@@ -573,6 +630,7 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
             printf("%lx ", pp->cm_version);
         }
         putchar('\n');
+        */
     }
     else {
         err_msg("Can't find path from %lx to %lx",

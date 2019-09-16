@@ -446,7 +446,7 @@ static void store_record(void)
 
 }
 
-void retrieve_data(DBM *dbm_db, KTree *tree, KTreeNode *node, uLong pv)
+static void retrieve_data(DBM *dbm_db, KTree *tree, KTreeNode *node, uLong pv)
 {
     /* Retrieving data & building the tree. */
     datum dbm_key, dbm_data;
