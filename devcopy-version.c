@@ -15,6 +15,7 @@ int insert;
 int branch;
 int display;
 int verbose;
+char *gfname;
 
 static int compare_commit(const void *key1, const void *key2)
 {
@@ -81,7 +82,7 @@ int main(int argc, char *argv[])
         help(argv[0]);
     }
 
-    fname = argv[optind];
+    gfname = fname = argv[optind];
 
     dbm_db = dbm_open(DB_FILE, O_RDWR | O_CREAT, FILE_MODE);
 

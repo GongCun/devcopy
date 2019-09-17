@@ -22,6 +22,7 @@
 
 #define BUFLEN      0x400000L /* 4M */
 #define MAX_STR     4096
+#define MAX_NODE    1024
 #define MAX_AUTHOR  64
 #define ULONG_LEN   (sizeof(uLong))
 #define VERSION_DIR "./.devcopy"
@@ -36,6 +37,7 @@
 #endif
 
 extern int verbose;
+extern char *gfname;
 
 struct slice {
     unsigned long long  seq;

@@ -494,45 +494,94 @@ static void rollback(List *list)
     KTreeNode *n;
     ListElmt *save = NULL;
     struct commit_info *p, *x;
-    char buf[MYBUFLEN];
+    char *buf, **pbuf;
+    char s[MYBUFLEN];
+    int i, j;
 
+    printf("list size = %d\n", list_size(list));
 
-    for (ListElmt *e = list->head;
+    pbuf = malloc(list_size(list) * sizeof(char *));
+    for (i = 0; i < list_size(list); i++) {
+        *pbuf = NULL; /* ensure free() success. */
+    }
+
+    memset(s, '\0', sizeof(s));
+
+    /* Scan first: check files exist, save the copy command. */
+    for (ListElmt *e = list->head, i = 0;
          e;
          e = e->next)
     {
         n = (KTreeNode *)e->data;
-
-        if (verbose) {
-            p = (struct commit_info *)n->ktn_data;
-            printf("%lx", p->cm_version);
-        }
+        p = (struct commit_info *)n->ktn_data;
 
         if (save) {
             if (verbose) {
-                printf(" -> ");
+                if (strlen(s) + 4 >= sizeof(s)) {
+                    err_quit("out of range");
+                }
+                sprintf(s + strlen(s), " -> ");
+            }
+
+            buf = pbuf[i++] = malloc(MYBUFLEN);
+            if (buf == NULL) {
+                err_sys("malloc");
             }
 
             KTreeNode *tmp = (KTreeNode *)save->data;
             if (tmp->ktn_parent == n) {
                 /* Roll backward. */
                 x = (struct commit_info *)tmp->ktn_data;
-                snprintf(buf, sizeof(buf),
-                         "/usr/local/bin/devcopy-delta %s %s/%lx/*.bk.*",
-                         gfname, VERPATH, x->cm_version);
+
+                snprintf(buf, MYBUFLEN, "/bin/ls %s/%08lx/ | grep -q '.bk.[0-9]*$'",
+                         VERSION_DIR, x->cm_version);
+                printf("%s\n", buf);
+                if (system(buf) != 0) {
+                    err_quit("check %08lx .bk.* file failed", x->cm_version);
+                }
+
+                snprintf(buf, MYBUFLEN,
+                         "/usr/local/bin/devcopy-delta ./%s %s/%08lx/*.bk.*",
+                         gfname, VERSION_DIR, x->cm_version);
+                printf("%s\n", buf);
             }
             else {
                 /* Roll forward. */
-                ;
+                snprintf(buf, MYBUFLEN, "/bin/ls %s/%08lx/ | grep -q '.chg.[0-9]*$'",
+                         VERSION_DIR, p->cm_version);
+                printf("%s\n", buf);
+                if (system(buf) != 0) {
+                    err_quit("check %08lx .chg.* file failed", p->cm_version);
+                }
+
+                snprintf(buf, MYBUFLEN,
+                         "/usr/local/bin/devcopy-delta ./%s %s/%8lx/*.chg.*",
+                         gfname, VERSION_DIR, p->cm_version);
+                printf("%s\n", buf);
             }
+
             /* printf("%s ", tmp->ktn_parent == n ? "up": "down"); */
         }
         save = e;
 
+        if (verbose) {
+            if (strlen(s) + 8 >= sizeof(s)) {
+                err_quit("out of range");
+            }
+            sprintf(s + strlen(s), "%8lx", p->cm_version);
+            /* printf("%lx", p->cm_version); */
+        }
     }
 
+    for (j = 0; j < i; j++) {
+        system(pbuf[j]);
+        free(pbuf[j]);
+    }
+    free(pbuf);
+
     if (verbose) {
-        putchar('\n');
+        /* putchar('\n'); */
+        printf("%s\n", s);
     }
 }
 
