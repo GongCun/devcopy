@@ -492,7 +492,7 @@ static void compress_path(List *list)
 static void rollback(List *list)
 {
     KTreeNode *n;
-    ListElmt *save = NULL;
+    ListElmt *save = NULL, *e;
     struct commit_info *p, *x;
     char *buf, **pbuf;
     char s[MYBUFLEN];
@@ -508,7 +508,7 @@ static void rollback(List *list)
     memset(s, '\0', sizeof(s));
 
     /* Scan first: check files exist, save the copy command. */
-    for (ListElmt *e = list->head, i = 0;
+    for (e = list->head, i = 0;
          e;
          e = e->next)
     {
@@ -543,7 +543,7 @@ static void rollback(List *list)
                 snprintf(buf, MYBUFLEN,
                          "/usr/local/bin/devcopy-delta ./%s %s/%08lx/*.bk.*",
                          gfname, VERSION_DIR, x->cm_version);
-                printf("%s\n", buf);
+                /* printf("%s\n", buf); */
             }
             else {
                 /* Roll forward. */
@@ -557,11 +557,10 @@ static void rollback(List *list)
                 snprintf(buf, MYBUFLEN,
                          "/usr/local/bin/devcopy-delta ./%s %s/%8lx/*.chg.*",
                          gfname, VERSION_DIR, p->cm_version);
-                printf("%s\n", buf);
+                /* printf("%s\n", buf); */
             }
-
-            /* printf("%s ", tmp->ktn_parent == n ? "up": "down"); */
         }
+
         save = e;
 
         if (verbose) {
@@ -569,20 +568,25 @@ static void rollback(List *list)
                 err_quit("out of range");
             }
             sprintf(s + strlen(s), "%8lx", p->cm_version);
-            /* printf("%lx", p->cm_version); */
         }
     }
 
+    if (verbose) {
+        puts(s);
+        /* printf("%s\n", s); */
+    }
+
     for (j = 0; j < i; j++) {
-        system(pbuf[j]);
+        /* if (system(pbuf[j]) != 0) { */
+            /* err_quit("Error: %s", pbuf[j]); */
+        /* } */
+        /* printf("%s\n", buf); */
+        puts(pbuf[j]);
         free(pbuf[j]);
     }
+
     free(pbuf);
 
-    if (verbose) {
-        /* putchar('\n'); */
-        printf("%s\n", s);
-    }
 }
 
 void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
@@ -661,25 +665,6 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
     if (ret) {
         compress_path(list);
         rollback(list);
-
-        /*
-        KTreeNode *n;
-        ListElmt *save = NULL;
-        for (ListElmt *e = list->head;
-             e;
-             e = e->next)
-        {
-            n = (KTreeNode *)e->data;
-            if (save) {
-                KTreeNode *tmp = (KTreeNode *)save->data;
-                printf("%s ", tmp->ktn_parent == n ? "up": "down");
-            }
-            save = e;
-            pp = (struct commit_info *)n->ktn_data;
-            printf("%lx ", pp->cm_version);
-        }
-        putchar('\n');
-        */
     }
     else {
         err_msg("Can't find path from %lx to %lx",
