@@ -498,7 +498,7 @@ static void rollback(List *list)
     char s[MYBUFLEN];
     int i, j;
 
-    printf("list size = %d\n", list_size(list));
+    /* printf("list size = %d\n", list_size(list)); */
 
     pbuf = malloc(list_size(list) * sizeof(char *));
     for (i = 0; i < list_size(list); i++) {
@@ -535,29 +535,27 @@ static void rollback(List *list)
 
                 snprintf(buf, MYBUFLEN, "/bin/ls %s/%08lx/ | grep -q '.bk.[0-9]*$'",
                          VERSION_DIR, x->cm_version);
-                printf("%s\n", buf);
+                /* printf("%s\n", buf); */
                 if (system(buf) != 0) {
                     err_quit("check %08lx .bk.* file failed", x->cm_version);
                 }
 
                 snprintf(buf, MYBUFLEN,
-                         "/usr/local/bin/devcopy-delta ./%s %s/%08lx/*.bk.*",
+                         "./devcopy-delta ./%s %s/%08lx/*.bk.*",
                          gfname, VERSION_DIR, x->cm_version);
-                /* printf("%s\n", buf); */
             }
             else {
                 /* Roll forward. */
                 snprintf(buf, MYBUFLEN, "/bin/ls %s/%08lx/ | grep -q '.chg.[0-9]*$'",
                          VERSION_DIR, p->cm_version);
-                printf("%s\n", buf);
+                /* printf("%s\n", buf); */
                 if (system(buf) != 0) {
                     err_quit("check %08lx .chg.* file failed", p->cm_version);
                 }
 
                 snprintf(buf, MYBUFLEN,
-                         "/usr/local/bin/devcopy-delta ./%s %s/%8lx/*.chg.*",
+                         "./devcopy-delta ./%s %s/%8lx/*.chg.*",
                          gfname, VERSION_DIR, p->cm_version);
-                /* printf("%s\n", buf); */
             }
         }
 
@@ -572,16 +570,15 @@ static void rollback(List *list)
     }
 
     if (verbose) {
+        puts("checkout path:");
         puts(s);
-        /* printf("%s\n", s); */
     }
 
     for (j = 0; j < i; j++) {
-        /* if (system(pbuf[j]) != 0) { */
-            /* err_quit("Error: %s", pbuf[j]); */
-        /* } */
-        /* printf("%s\n", buf); */
         puts(pbuf[j]);
+        if (system(pbuf[j]) != 0) {
+            err_quit("Error: %s", pbuf[j]);
+        }
         free(pbuf[j]);
     }
 
@@ -616,35 +613,19 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
     dbm_key.dptr = (void *)&checkout;
     dbm_key.dsize = sizeof(uLong);
     dbm_data = dbm_fetch(dbm_db, dbm_key);
-    if (dbm_data.dptr) {
-        v = (struct commit_info *)dbm_data.dptr;
 
-        /* Change the current version flag. */
-        v->cm_current_flag = 1;
-        dbm_key.dptr = (void *)&v->cm_version;
-        dbm_key.dsize = sizeof(uLong);
-        dbm_data.dptr = (void *)v;
-        dbm_data.dsize = sizeof(struct commit_info);
-        ret = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
-        if (ret != 0) {
-            err_quit(gdbm_strerror(gdbm_errno));
-        }
-
-        /* Clean previous current version flag. */
-        p->cm_current_flag = 0;
-        dbm_key.dptr = (void *)&p->cm_version;
-        dbm_key.dsize = sizeof(uLong);
-        dbm_data.dptr = (void *)p;
-        dbm_data.dsize = sizeof(struct commit_info);
-        ret = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
-        if (ret != 0) {
-            err_quit(gdbm_strerror(gdbm_errno));
-        }
-    }
-    else {
+    if (!dbm_data.dptr) {
         err_msg("Can't find the specific version.");
         return;
     }
+
+    /*
+     * ATTENTION:
+     *       The current version flag can only be updated if the rollback is
+     *       successful.
+     */
+
+    v = (struct commit_info *)dbm_data.dptr;
 
     /* Generate the rollback path. */
     list = malloc(sizeof(List));
@@ -669,8 +650,32 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
     else {
         err_msg("Can't find path from %lx to %lx",
                 p->cm_version, v->cm_version);
+        return;
     }
 
-    free(p); /* Now we can free the pointer. */
+    /* Now we can update the current version flag. */
+    v->cm_current_flag = 1;
+    dbm_key.dptr = (void *)&v->cm_version;
+    dbm_key.dsize = sizeof(uLong);
+    dbm_data.dptr = (void *)v;
+    dbm_data.dsize = sizeof(struct commit_info);
+    ret = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
+    if (ret != 0) {
+        err_quit(gdbm_strerror(gdbm_errno));
+    }
 
+    /* Clean previous current version flag. */
+    p->cm_current_flag = 0;
+    dbm_key.dptr = (void *)&p->cm_version;
+    dbm_key.dsize = sizeof(uLong);
+    dbm_data.dptr = (void *)p;
+    dbm_data.dsize = sizeof(struct commit_info);
+    ret = dbm_store(dbm_db, dbm_key, dbm_data, DBM_REPLACE);
+    if (ret != 0) {
+        err_quit(gdbm_strerror(gdbm_errno));
+    }
+
+    free(p);
+
+    return;
 }
