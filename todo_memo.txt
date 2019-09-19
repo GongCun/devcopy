@@ -30,6 +30,7 @@ sudo apt-get install ncurses-doc
 
 - Prepare test case.
 - Display the elapse copy time.
+- Checking the files first, then update the current version flag.
 
 # Git cmd
 # push
