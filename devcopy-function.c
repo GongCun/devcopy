@@ -275,7 +275,7 @@ void print_commit(void *data)
     
     p = (struct commit_info *)data;
 
-    printf("%lx - ", p -> cm_version);
+    printf("%08lx - ", p -> cm_version);
 
     now = time(NULL);
     between = now - p -> cm_date;
@@ -388,7 +388,7 @@ void insert_commit(DBM *dbm_db, struct commit_info *pc, const char *fname)
 
     pc->cm_version = commit_version();
     if (verbose) {
-        printf("Insert new version: %lx\n", pc->cm_version);
+        printf("Insert new version: %08lx\n", pc->cm_version);
     }
 
     pc->cm_date = time(NULL);
@@ -604,7 +604,7 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
     }
 
     if (p->cm_version == checkout) {
-        err_msg("%lx is the HEAD now!", checkout);
+        err_msg("%08lx is the HEAD now!", checkout);
         free(p);
         return;
     }
@@ -648,7 +648,7 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
         rollback(list);
     }
     else {
-        err_msg("Can't find path from %lx to %lx",
+        err_msg("Can't find path from %08lx to %08lx",
                 p->cm_version, v->cm_version);
         return;
     }
@@ -676,6 +676,44 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
     }
 
     free(p);
+
+    return;
+}
+
+void show_release(DBM *dbm_db, uLong release)
+{
+    datum dbm_key, dbm_data;
+    struct commit_info *p;
+
+    dbm_key.dptr = (void *)&release;
+    dbm_key.dsize = sizeof(uLong);
+
+    dbm_data = dbm_fetch(dbm_db, dbm_key);
+    if (!dbm_data.dptr) {
+        printf("Cannot find the version %08lx\n", release);
+        return;
+    }
+
+    p = (struct commit_info *)dbm_data.dptr;
+
+    printf("Version: %08lx\n", p->cm_version);
+
+    if (p->cm_pversion) {
+        printf("Parent version: %08lx\n", p->cm_pversion);
+    }
+    else {
+        puts("Root version");
+    }
+
+    if (p->cm_current_flag) {
+        puts("Head version");
+    }
+
+    printf("File modification time: %s", ctime(&p->cm_mtime));
+    printf("Version submission time: %s", ctime(&p->cm_date));
+    printf("Author: %s\n", p->cm_author);
+    puts("Commit message:");
+    printf("%s", p->cm_message);
 
     return;
 }

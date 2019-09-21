@@ -15,7 +15,11 @@ int insert;
 int branch;
 int display;
 int verbose;
+int showver;
 char *gfname;
+char VERSION_DIR[PATH_MAX];
+char DB_FILE[PATH_MAX];
+
 
 static int compare_commit(const void *key1, const void *key2)
 {
@@ -29,24 +33,25 @@ static int compare_commit(const void *key1, const void *key2)
 
 static void help(const char *prog)
 {
-    err_quit("%s -v -i -b -c [version] -l [file-name]", prog);
+    err_quit("%s -v -i -b [branch] -c [version] -s [version] -l [file-name]", prog);
 }
 
 int main(int argc, char *argv[])
 {
-    int                 c, ret;
-    char               *fchg, *fhash, *fbk;
+    int                 c;
     char               *fname;
     struct commit_info  commit_info;
-    struct commit_info *pc;     /* point to current version */
-    struct commit_info *ppc;    /* point to previous commit */
+    struct commit_info *pc;
     DBM                *dbm_db;
     uLong               checkout = 0L;
+    uLong               release = 0L;
     KTree              *tree;
+    struct stat         stat_buf;
+
 
     opterr = 0;
 
-    while ((c = getopt(argc, argv, "ibc:vl")) != EOF)
+    while ((c = getopt(argc, argv, "ib:c:vls:")) != EOF)
     {
         switch (c)
         {
@@ -57,7 +62,13 @@ int main(int argc, char *argv[])
 
             case 'b':
                 /* Create a new branch */
+                if (strchr(optarg, '/')) {
+                    err_exit(EINVAL, "branch name cannot contain the '/' character.");
+                }
+
                 branch = 1;
+                snprintf(VERSION_DIR, sizeof(VERSION_DIR),
+                         "%s/%s", VERSION_HOME, optarg);
                 break;
 
             case 'c':
@@ -73,6 +84,11 @@ int main(int argc, char *argv[])
                 verbose = 1;
                 break;
 
+            case 's':
+                showver = 1;
+                release = strtoul(optarg, NULL, 16);
+                break;
+
             case '?':
                 help(argv[0]);
         }
@@ -84,7 +100,41 @@ int main(int argc, char *argv[])
 
     gfname = fname = argv[optind];
 
+    if (stat(fname, &stat_buf) < 0) {
+        err_sys("stat %s", fname);
+    }
+
+    if (!branch) {
+        strcpy(VERSION_DIR, VERSION_STR(master));
+    }
+
+    if (verbose) {
+        printf("VERSION_DIR = %s\n", VERSION_DIR);
+    }
+
+    snprintf(DB_FILE, sizeof(DB_FILE),
+             "%s/vc_%s.dbm",
+             VERSION_DIR, basename(fname));
+
+    if (branch || insert || checkout) {
+
+        if (mkdir(VERSION_HOME, DIR_MODE) < 0 &&
+            errno != EEXIST) {
+            err_sys("mkdir %s", VERSION_HOME);
+        }
+
+        if (mkdir(VERSION_DIR, DIR_MODE) < 0 &&
+            errno != EEXIST) {
+            err_sys("mkdir %s", VERSION_DIR);
+        }
+
+    }
+
     dbm_db = dbm_open(DB_FILE, O_RDWR | O_CREAT, FILE_MODE);
+
+    if (showver && release) {
+        show_release(dbm_db, release);
+    }
 
     tree = malloc(sizeof(KTree));
     if (tree == NULL) {
