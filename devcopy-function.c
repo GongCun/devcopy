@@ -593,6 +593,7 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
     int ret;
     List *list, *miss;
     KTreeNode *n1, *n2;
+    struct stat statbuf;
 
     /* Fetch the current version for update in the future. */
     p = NULL;
@@ -601,6 +602,15 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
     if (p == NULL) {
         err_msg("Repository is empty, nothing to checkout.");
         return;
+    }
+
+    /* Check the file modification date, ensure the file have been checked in
+     * before checking out. */
+    if (stat(gfname, &statbuf) < 0) {
+        err_sys("stat %s", gfname);
+    }
+    if (p->cm_mtime != statbuf.st_mtime) {
+        err_quit("Check in the file %s first!", gfname);
     }
 
     if (p->cm_version == checkout) {
@@ -653,8 +663,14 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
         return;
     }
 
-    /* Now we can update the current version flag. */
+    /* Now we can update the current version. */
     v->cm_current_flag = 1;
+
+    if (stat(gfname, &statbuf) < 0) {
+        err_sys("stat %s", gfname);
+    }
+    v->cm_mtime = statbuf.st_mtime;
+
     dbm_key.dptr = (void *)&v->cm_version;
     dbm_key.dsize = sizeof(uLong);
     dbm_data.dptr = (void *)v;

@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     uLong               checkout = 0L;
     uLong               release = 0L;
     KTree              *tree;
-    struct stat         stat_buf;
+    struct stat         statbuf;
 
 
     opterr = 0;
@@ -100,8 +100,14 @@ int main(int argc, char *argv[])
 
     gfname = fname = argv[optind];
 
-    if (stat(fname, &stat_buf) < 0) {
+    if (stat(fname, &statbuf) < 0) {
         err_sys("stat %s", fname);
+    }
+
+    if (!(S_ISREG(statbuf.st_mode) ||
+          S_ISCHR(statbuf.st_mode) ||
+          S_ISBLK(statbuf.st_mode))) {
+        err_quit("File %s: type is not supported.", fname);
     }
 
     if (!branch) {
@@ -159,9 +165,11 @@ int main(int argc, char *argv[])
     }
 
     if (checkout) {
-        /* Update the current version flag, then rollback the target file to the
-           specific version.
+
+        /* Update the current version information, then rollback the target file
+           to the specific version.
         */
+
         checkout_commit(dbm_db, checkout, tree);
     }
 
