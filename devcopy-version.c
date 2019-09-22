@@ -10,6 +10,7 @@
 #include "ktree.h"
 #include "asprintf.h"
 #include "error.h"
+#include "lockfile.h"
 
 int insert;
 int branch;
@@ -19,6 +20,7 @@ int showver;
 char *gfname;
 char VERSION_DIR[PATH_MAX];
 char DB_FILE[PATH_MAX];
+char LOCKFILE[PATH_MAX];
 
 
 static int compare_commit(const void *key1, const void *key2)
@@ -113,6 +115,44 @@ int main(int argc, char *argv[])
     if (!branch) {
         strcpy(VERSION_DIR, VERSION_STR(master));
     }
+
+    snprintf(LOCKFILE, sizeof(LOCKFILE), "%s/%s.lock",
+             VERSION_DIR, basename(fname));
+
+    /* Try to lock file to protect process. */
+    int lockfd = open(LOCKFILE, O_RDWR|O_CREAT, LOCK_MODE);
+    if (lockfd < 0) {
+        err_sys("can't open %s", LOCKFILE);
+    }
+
+    FILE *fflock = fdopen(lockfd, "r+");
+    if (fflock == NULL) {
+        err_sys("fdopen");
+    }
+
+    char buf[MYBUFLEN];
+    if (lockfile(lockfd) < 0) {
+        long pid = 0;
+
+        if (errno == EACCES || errno == EAGAIN) {
+            if (fgets(buf, sizeof(buf), fflock) &&
+                sscanf(buf, "%ld", &pid)) {
+                err_quit("process %ld already running", pid);
+            }
+            else {
+                err_quit("process already running");
+            }
+        }
+        else {
+            err_sys("cannot lock %s", LOCKFILE);
+        }
+    }
+
+    ftruncate(lockfd, 0);
+    sprintf(buf, "%ld", (long)getpid());
+    write(lockfd, buf, strlen(buf) + 1);
+    /* Finish Locking file. */
+
 
     if (verbose) {
         printf("VERSION_DIR = %s\n", VERSION_DIR);

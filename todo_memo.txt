@@ -31,7 +31,7 @@ sudo apt-get install ncurses-doc
 - Prepare test case.
 - Display the elapse copy time.
 - Checking the files first, then update the current version flag.
-- FIX ME: Haven't record the current branch.
+- FIX ME: Haven't record the current branch: record the current branch in lockfile
 - Color display version information.
 
 # Git cmd

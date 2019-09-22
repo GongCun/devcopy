@@ -20,19 +20,20 @@
 #include <limits.h>
 #include <libgen.h>
 
-#define BUFLEN      0x400000L /* 4M */
-#define MAX_STR     4096
-#define MAX_NODE    1024
-#define MAX_AUTHOR  64
-#define ULONG_LEN   (sizeof(uLong))
-#define VERSION_HOME "./.devcopy"
+#define BUFLEN         0x400000L /* 4M */
+#define MAX_STR        4096
+#define MAX_NODE       1024
+#define MAX_AUTHOR     64
+#define ULONG_LEN      (sizeof(uLong))
+#define VERSION_HOME   "./.devcopy"
 #define VERSION_STR(s) VERSION_HOME"/"#s
 /* #define VERSION_DIR "./.devcopy" */
-#define TRACE_FILE  "./devcopy.trc"
-#define FILE_MODE   (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) /* 0644 */
-#define DIR_MODE    (FILE_MODE | S_IXUSR | S_IXGRP | S_IXOTH) /* 0755 */
+#define TRACE_FILE     "./devcopy.trc"
+#define FILE_MODE      (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) /* 0644 */
+#define LOCK_MODE      FILE_MODE
+#define DIR_MODE       (FILE_MODE | S_IXUSR | S_IXGRP | S_IXOTH) /* 0755 */
 /* #define DB_FILE     VERSION_DIR	"/devcopy.dbm" /\* ./.devcopy/devcopy.dbm *\/ */
-#define MYBUFLEN    1024
+#define MYBUFLEN       1024
 
 #ifndef PATH_MAX
 #define PATH_MAX 4096
