@@ -125,6 +125,24 @@ int main(int argc, char *argv[])
     snprintf(LOCKFILE, sizeof(LOCKFILE), "%s/%s.lock",
              VERSION_DIR, basename(fname));
 
+    snprintf(DB_FILE, sizeof(DB_FILE),
+             "%s/vc_%s.dbm",
+             VERSION_DIR, basename(fname));
+
+    if (branch || insert || checkout) {
+
+        if (mkdir(VERSION_HOME, DIR_MODE) < 0 &&
+            errno != EEXIST) {
+            err_sys("mkdir %s", VERSION_HOME);
+        }
+
+        if (mkdir(VERSION_DIR, DIR_MODE) < 0 &&
+            errno != EEXIST) {
+            err_sys("mkdir %s", VERSION_DIR);
+        }
+
+    }
+
     /* Try to lock file to protect process. */
     int lockfd = open(LOCKFILE, O_RDWR|O_CREAT, LOCK_MODE);
     if (lockfd < 0) {
@@ -158,28 +176,6 @@ int main(int argc, char *argv[])
     write(lockfd, buf, strlen(buf) + 1);
     /* Finish Locking file. */
 
-
-    /* if (verbose) { */
-    /*     printf("VERSION_DIR = %s\n", VERSION_DIR); */
-    /* } */
-
-    snprintf(DB_FILE, sizeof(DB_FILE),
-             "%s/vc_%s.dbm",
-             VERSION_DIR, basename(fname));
-
-    if (branch || insert || checkout) {
-
-        if (mkdir(VERSION_HOME, DIR_MODE) < 0 &&
-            errno != EEXIST) {
-            err_sys("mkdir %s", VERSION_HOME);
-        }
-
-        if (mkdir(VERSION_DIR, DIR_MODE) < 0 &&
-            errno != EEXIST) {
-            err_sys("mkdir %s", VERSION_DIR);
-        }
-
-    }
 
     if (verbose) {
         if (getcwd(buf, sizeof(buf)) == NULL) {
