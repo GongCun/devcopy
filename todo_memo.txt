@@ -33,6 +33,10 @@ sudo apt-get install ncurses-doc
 - Checking the files first, then update the current version flag.
 - FIX ME: Haven't record the current branch: record the current branch in lockfile
 - Color display version information.
+- tput setaf 3: yellow
+  tput setaf 2: green
+  tput setaf 4: blue
+  tput setaf 1: red
 
 # Git cmd
 # push

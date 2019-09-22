@@ -1,5 +1,6 @@
 #include "devcopy.h"
 #include "error.h"
+#include "printf_color.h"
 
 
 uLong current_version(DBM *dbm_db, struct commit_info **cm)
@@ -275,7 +276,9 @@ void print_commit(void *data)
     
     p = (struct commit_info *)data;
 
-    printf("%08lx - ", p -> cm_version);
+    /* printf("%08lx - ", p -> cm_version); */
+    printf_color(stdout, DEVCOPY_RED, "%08lx", p->cm_version);
+    printf(" - ");
 
     now = time(NULL);
     between = now - p -> cm_date;
@@ -288,30 +291,41 @@ void print_commit(void *data)
      */
     if (between < 3600) {
         n = between / 60 + 1;
-        printf("(%d minute%s ago)", n, n == 1 ? "" : "s");
+        /* printf("(%d minute%s ago)", n, n == 1 ? "" : "s"); */
+        printf_color(stdout, DEVCOPY_GREEN,
+                     "(%d minute%s ago)", n, n == 1 ? "" : "s");
     }
     else if (between < 3600 * 24 * 2) {
         n = between / 3600 + 1;
-        printf("(%d hour%s ago)", n, n == 1 ? "" : "s");
+        /* printf("(%d hour%s ago)", n, n == 1 ? "" : "s"); */
+        printf_color(stdout, DEVCOPY_GREEN,
+                     "(%d hour%s ago)", n, n == 1 ? "" : "s");
     }
     else if (between < 3600 * 24 * 7) {
         n = between / (3600 * 24) + 1;
-        printf("(%d day%s ago)", n, n == 1 ? "" : "s");
+        /* printf("(%d day%s ago)", n, n == 1 ? "" : "s"); */
+        printf_color(stdout, DEVCOPY_GREEN,
+                     "(%d day%s ago)", n, n == 1 ? "" : "s");
     }
     else if (between < 3600 * 24 * 31) {
         n = between / (3600 * 24 * 7) + 1;
-        printf("(%d week%s ago)", n, n == 1 ? "" : "s");
+        /* printf("(%d week%s ago)", n, n == 1 ? "" : "s"); */
+        printf_color(stdout, DEVCOPY_GREEN,
+                     "(%d week%s ago)", n, n == 1 ? "" : "s");
     }
     else {
         n = between / (3600 * 24 * 31) + 1;
-        printf("((%d) month%s ago)", n, n == 1 ? "" : "s");
+        /* printf("((%d) month%s ago)", n, n == 1 ? "" : "s"); */
+        printf_color(stdout, DEVCOPY_GREEN,
+                     "((%d) month%s ago)", n, n == 1 ? "" : "s");
     }
 
     sscanf(p -> cm_message, "%[^\n]", buf);
     buf[strlen(buf)] = '\0';
     printf(" %s - %s", buf, p -> cm_author);
     if (p -> cm_current_flag) {
-        printf(" (HEAD)");
+        /* printf(" (HEAD)"); */
+        printf_color(stdout, DEVCOPY_YELLOW, " (HEAD)");
     }
 }
 
@@ -610,7 +624,7 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
         err_sys("stat %s", gfname);
     }
     if (p->cm_mtime != statbuf.st_mtime) {
-        err_quit("Check in the file %s first!", gfname);
+        err_quit("Check in %s first or check the current branch!", gfname);
     }
 
     if (p->cm_version == checkout) {

@@ -5,7 +5,7 @@ EXTRALIBS = -lgdbm_compat -lgdbm
 
 CPPFLAGS = -I$(LDDIR) -I$(ROOT)
 
-PROGS = error-test gdbm-test ktree-test gdbm-ktree-test screen-test
+PROGS = error-test gdbm-test ktree-test gdbm-ktree-test screen-test test-curses
 
 all: $(PROGS)
 

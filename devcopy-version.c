@@ -11,6 +11,7 @@
 #include "asprintf.h"
 #include "error.h"
 #include "lockfile.h"
+#include "printf_color.h"
 
 int insert;
 int branch;
@@ -41,14 +42,17 @@ static void help(const char *prog)
 int main(int argc, char *argv[])
 {
     int                 c;
-    char               *fname;
+    char               *fname, *branch_name;
     struct commit_info  commit_info;
     struct commit_info *pc;
     DBM                *dbm_db;
     uLong               checkout = 0L;
-    uLong               release = 0L;
+    uLong               release  = 0L;
     KTree              *tree;
     struct stat         statbuf;
+    struct dirent      *dirp;
+    DIR                *dp;
+    char                buf[MYBUFLEN];
 
 
     opterr = 0;
@@ -69,6 +73,7 @@ int main(int argc, char *argv[])
                 }
 
                 branch = 1;
+                branch_name = optarg;
                 snprintf(VERSION_DIR, sizeof(VERSION_DIR),
                          "%s/%s", VERSION_HOME, optarg);
                 break;
@@ -113,6 +118,7 @@ int main(int argc, char *argv[])
     }
 
     if (!branch) {
+        branch_name = "master";
         strcpy(VERSION_DIR, VERSION_STR(master));
     }
 
@@ -130,7 +136,6 @@ int main(int argc, char *argv[])
         err_sys("fdopen");
     }
 
-    char buf[MYBUFLEN];
     if (lockfile(lockfd) < 0) {
         long pid = 0;
 
@@ -154,9 +159,9 @@ int main(int argc, char *argv[])
     /* Finish Locking file. */
 
 
-    if (verbose) {
-        printf("VERSION_DIR = %s\n", VERSION_DIR);
-    }
+    /* if (verbose) { */
+    /*     printf("VERSION_DIR = %s\n", VERSION_DIR); */
+    /* } */
 
     snprintf(DB_FILE, sizeof(DB_FILE),
              "%s/vc_%s.dbm",
@@ -175,6 +180,50 @@ int main(int argc, char *argv[])
         }
 
     }
+
+    if (verbose) {
+        if (getcwd(buf, sizeof(buf)) == NULL) {
+            err_sys("getcwd");
+        }
+
+        if ((dp = opendir(VERSION_HOME)) == NULL) {
+            err_sys("opendir %s", VERSION_HOME);
+        }
+
+        if (chdir(VERSION_HOME) == -1) {
+            err_sys("chdir");
+        }
+
+        while ((dirp = readdir(dp)) != NULL) {
+            if (strcmp(dirp->d_name, ".") == 0 ||
+                strcmp(dirp->d_name, "..") == 0) {
+                continue;
+            }
+
+            if (stat(dirp->d_name, &statbuf) < 0) {
+                err_sys("stat %s", dirp->d_name);
+            }
+
+            if (!S_ISDIR(statbuf.st_mode)) {
+                continue;
+            }
+
+            if (strcmp(dirp->d_name, branch_name) == 0) {
+                printf("* ");
+                printf_color(stdout, DEVCOPY_GREEN, "%s\n", branch_name);
+            }
+            else {
+                printf("  %s\n", dirp->d_name);
+            }
+        }
+
+        if (chdir(buf) == -1) {
+            err_sys("chdir");
+        }
+
+        putchar('\n');
+    }
+
 
     dbm_db = dbm_open(DB_FILE, O_RDWR | O_CREAT, FILE_MODE);
 

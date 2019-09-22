@@ -4,7 +4,7 @@ OS = $(shell uname -s | tr 'A-Z' 'a-z')
 EXTRA := -fPIC
 include $(ROOT)/Make.defines.$(OS)
 
-OBJS = ktree.o list.o error.o asprintf.o lockfile.o
+OBJS = ktree.o list.o error.o asprintf.o lockfile.o printf_color.o
 
 all: $(LIBMYLIB)
 

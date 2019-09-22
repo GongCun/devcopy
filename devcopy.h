@@ -27,13 +27,16 @@
 #define ULONG_LEN      (sizeof(uLong))
 #define VERSION_HOME   "./.devcopy"
 #define VERSION_STR(s) VERSION_HOME"/"#s
-/* #define VERSION_DIR "./.devcopy" */
 #define TRACE_FILE     "./devcopy.trc"
 #define FILE_MODE      (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) /* 0644 */
 #define LOCK_MODE      FILE_MODE
 #define DIR_MODE       (FILE_MODE | S_IXUSR | S_IXGRP | S_IXOTH) /* 0755 */
-/* #define DB_FILE     VERSION_DIR	"/devcopy.dbm" /\* ./.devcopy/devcopy.dbm *\/ */
 #define MYBUFLEN       1024
+
+#define DEVCOPY_RED    1
+#define DEVCOPY_GREEN  2
+#define DEVCOPY_YELLOW 3
+#define DEVCOPY_BLUE   4
 
 #ifndef PATH_MAX
 #define PATH_MAX 4096
