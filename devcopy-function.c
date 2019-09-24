@@ -590,8 +590,10 @@ static void rollback(List *list)
 
     for (j = 0; j < i; j++) {
         puts(pbuf[j]);
-        if (system(pbuf[j]) != 0) {
-            err_quit("Error: %s", pbuf[j]);
+        if (!dryrun) {
+            if (system(pbuf[j]) != 0) {
+                err_quit("Error: %s", pbuf[j]);
+            }
         }
         free(pbuf[j]);
     }
@@ -670,6 +672,9 @@ void checkout_commit(DBM *dbm_db, uLong checkout, KTree *tree)
     if (ret) {
         compress_path(list);
         rollback(list);
+        if (dryrun) {
+            return;
+        }
     }
     else {
         err_msg("Can't find path from %08lx to %08lx",

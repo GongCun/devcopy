@@ -42,6 +42,7 @@
 #define PATH_MAX 4096
 #endif
 
+extern int dryrun;
 extern int verbose;
 extern char *gfname;
 extern char VERSION_DIR[];

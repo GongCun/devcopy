@@ -18,6 +18,7 @@ int branch;
 int display;
 int verbose;
 int showver;
+int dryrun;
 char *gfname;
 char VERSION_DIR[PATH_MAX];
 char DB_FILE[PATH_MAX];
@@ -36,7 +37,7 @@ static int compare_commit(const void *key1, const void *key2)
 
 static void help(const char *prog)
 {
-    err_quit("%s -v -i -b [branch] -c [version] -s [version] -l [file-name]", prog);
+    err_quit("%s -v -n -i -b [branch] -c [version] -s [version] -l [file-name]", prog);
 }
 
 int main(int argc, char *argv[])
@@ -57,13 +58,19 @@ int main(int argc, char *argv[])
 
     opterr = 0;
 
-    while ((c = getopt(argc, argv, "ib:c:vls:")) != EOF)
+    while ((c = getopt(argc, argv, "inb:c:vls:")) != EOF)
     {
         switch (c)
         {
             case 'i':
                 /* Insert a child-version after current version */
                 insert = 1;
+                break;
+
+            case 'n':
+                /* Perform a trial run that doesn't make any changes when
+                 * checkout. */
+                dryrun = 1;
                 break;
 
             case 'b':
@@ -106,6 +113,10 @@ int main(int argc, char *argv[])
     }
 
     gfname = fname = argv[optind];
+
+    if (insert && dryrun) {
+        err_quit("can't use '-i' with '-n' option");
+    }
 
     if (stat(fname, &statbuf) < 0) {
         err_sys("stat %s", fname);
@@ -177,6 +188,7 @@ int main(int argc, char *argv[])
     /* Finish Locking file. */
 
 
+    /* Display branch information. */
     if (verbose) {
         if (getcwd(buf, sizeof(buf)) == NULL) {
             err_sys("getcwd");
