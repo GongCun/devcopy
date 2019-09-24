@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
     struct dirent      *dirp;
     DIR                *dp;
     char                buf[MYBUFLEN];
+    char               *runpath;
 
 
     opterr = 0;
@@ -113,6 +114,17 @@ int main(int argc, char *argv[])
     }
 
     gfname = fname = argv[optind];
+
+    /* Go to working directory. */
+    runpath = realpath(argv[0], NULL);
+    if (runpath == NULL) {
+        err_sys("realpath");
+    }
+    if (chdir(dirname(runpath)) < 0) {
+        err_sys("chdir runpath");
+    }
+    free(runpath);
+    /* */
 
     if (insert && dryrun) {
         err_quit("can't use '-i' with '-n' option");
