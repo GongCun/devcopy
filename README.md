@@ -2,12 +2,13 @@ devcopy
 ==========
 
 
-Compile on AIX:
+# Compile
 
-	# GCC
-	gcc -Wall -maix64 -g -pg -o ./devcopy ./devcopy.c ./asprintf.c -lz
-	gcc -Wall -maix64 -g -pg -o ./devcopy-hash ./devcopy-hash.c ./asprintf.c -lz
-	gcc -Wall -maix64 -g -pg -o ./devcopy-delta ./devcopy-delta.c
+	# GNU/Linux
+	make
     
-    # XLC
+    # AIX
     gmake
+
+# Version Control
+![version control](./devcopy-branch.PNG)
